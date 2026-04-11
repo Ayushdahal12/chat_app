@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import axiosInstance from "../lib/axios";
+import { useSocketStore } from "./useSocketStore";
 
 export const useAuthStore = create((set) => ({
   authUser: null,
@@ -10,6 +11,7 @@ export const useAuthStore = create((set) => ({
     try {
       const res = await axiosInstance.post("/auth/signup", data);
       set({ authUser: res.data });
+      useSocketStore.getState().connectSocket(res.data._id);
       return { success: true };
     } catch (err) {
       return { success: false, message: err.response?.data?.message };
@@ -23,6 +25,7 @@ export const useAuthStore = create((set) => ({
     try {
       const res = await axiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
+      useSocketStore.getState().connectSocket(res.data._id);
       return { success: true };
     } catch (err) {
       return { success: false, message: err.response?.data?.message };
@@ -33,6 +36,7 @@ export const useAuthStore = create((set) => ({
 
   logout: async () => {
     await axiosInstance.post("/auth/logout");
+    useSocketStore.getState().disconnectSocket();
     set({ authUser: null });
   },
 
@@ -40,6 +44,7 @@ export const useAuthStore = create((set) => ({
     try {
       const res = await axiosInstance.get("/users/me");
       set({ authUser: res.data });
+      useSocketStore.getState().connectSocket(res.data._id);
     } catch {
       set({ authUser: null });
     }
