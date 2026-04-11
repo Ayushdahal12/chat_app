@@ -17,12 +17,13 @@ export const useMessageStore = create((set, get) => ({
     }
   },
 
-  sendMessage: async (receiverId, text, type = "text", callDuration = 0) => {
+  sendMessage: async (receiverId, text, type = "text", callDuration = 0, image = null) => {
     try {
       const res = await axiosInstance.post(`/messages/send/${receiverId}`, {
         text,
         type,
         callDuration,
+        image,
       });
       set({ messages: [...get().messages, res.data] });
     } catch (err) {

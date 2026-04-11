@@ -9,4 +9,10 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
+// axios.get("/api/users/me", {
+//   headers: {
+//     Authorization: `Bearer ${token}`,
+//   },
+// });
+
 export default axiosInstance;
