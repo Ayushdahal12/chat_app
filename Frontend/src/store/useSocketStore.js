@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { io } from "socket.io-client";
+import { useUserStore } from "./useUserStore";
+
 
 const SOCKET_URL = window.location.hostname === "localhost"
   ? "http://localhost:8080"
@@ -15,6 +17,7 @@ export const useSocketStore = create((set, get) => ({
 
     const socket = io(SOCKET_URL, {
       query: { userId },
+      transports: ["websocket"], // force websocket, avoid polling issues with ngrok
     });
 
     socket.on("getOnlineUsers", (users) => {
@@ -26,9 +29,13 @@ export const useSocketStore = create((set, get) => ({
       set({ incomingCall: { signal, from, username } });
     });
 
-    socket.on("callEnded", () => {
-      set({ incomingCall: null });
+    
+    socket.on("newMessage", (message) => {
+      useUserStore.getState().incrementUnread(message.senderId);
     });
+
+    // NOTE: do NOT handle callEnded here — VideoCallPage handles it directly
+    // Handling it here caused a race condition that wiped incomingCall too early
 
     set({ socket });
   },

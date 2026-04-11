@@ -8,6 +8,11 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ChatPage from "./pages/ChatPage";
 import VideoCallPage from "./pages/VideoCallPage";
 import IncomingCallModal from "./components/IncomingCallModal";
+import ProfilePage from "./pages/ProfilePage";
+import OTPPage from "./pages/OTPPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+
+
 
 function App() {
   const { authUser, getMe } = useAuthStore();
@@ -28,6 +33,9 @@ function App() {
         <Route path="/onboarding" element={authUser ? <OnboardingPage /> : <Navigate to="/login" />} />
         <Route path="/chat/:id" element={authUser ? <ChatPage /> : <Navigate to="/login" />} />
         <Route path="/call/:id" element={authUser ? <VideoCallPage /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+        <Route path="/verify-otp" element={<OTPPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Routes>
     </>
   );
