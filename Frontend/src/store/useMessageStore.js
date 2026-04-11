@@ -1,0 +1,36 @@
+import { create } from "zustand";
+import axiosInstance from "../lib/axios";
+
+export const useMessageStore = create((set, get) => ({
+  messages: [],
+  isLoading: false,
+
+  getMessages: async (userId) => {
+    set({ isLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/${userId}`);
+      set({ messages: res.data });
+    } catch (err) {
+      console.log(err);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  sendMessage: async (receiverId, text, type = "text", callDuration = 0) => {
+    try {
+      const res = await axiosInstance.post(`/messages/send/${receiverId}`, {
+        text,
+        type,
+        callDuration,
+      });
+      set({ messages: [...get().messages, res.data] });
+    } catch (err) {
+      console.log(err);
+    }
+  },
+
+  addMessage: (message) => {
+    set({ messages: [...get().messages, message] });
+  },
+}));
