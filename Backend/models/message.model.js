@@ -7,7 +7,13 @@ const messageSchema = new mongoose.Schema({
   image: { type: String },
   type: { type: String, default: "text" },
   callDuration: { type: Number, default: 0 },
-  seen: { type: Boolean, default: false }, // ✅ add seen
+  seen: { type: Boolean, default: false },
+  reactions: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      emoji: { type: String },
+    }
+  ],
 }, { timestamps: true });
 
 export default mongoose.model("Message", messageSchema);

@@ -3,16 +3,20 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  define: {
-    global: "globalThis",
-  },
+  base: '/',
   server: {
-  host: true,
-  proxy: {
-    '/api': {
-      target: 'https://dioicous-nonorthodoxly-carl.ngrok-free.dev',
-      changeOrigin: true,
+    host: true,
+    port: 5173, 
+    allowedHosts: [".ngrok-free.dev"],
+    headers: {
+      "ngrok-skip-browser-warning": "true",
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080', 
+        changeOrigin: true,
+        secure: false,
+      }
     }
   }
-}
 })

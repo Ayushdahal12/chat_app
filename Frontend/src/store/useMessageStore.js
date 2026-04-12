@@ -20,10 +20,7 @@ export const useMessageStore = create((set, get) => ({
   sendMessage: async (receiverId, text, type = "text", callDuration = 0, image = null) => {
     try {
       const res = await axiosInstance.post(`/messages/send/${receiverId}`, {
-        text,
-        type,
-        callDuration,
-        image,
+        text, type, callDuration, image,
       });
       set({ messages: [...get().messages, res.data] });
     } catch (err) {
@@ -33,5 +30,26 @@ export const useMessageStore = create((set, get) => ({
 
   addMessage: (message) => {
     set({ messages: [...get().messages, message] });
+  },
+
+  reactToMessage: async (messageId, emoji) => {
+    try {
+      const res = await axiosInstance.put(`/messages/react/${messageId}`, { emoji });
+      set({
+        messages: get().messages.map((m) =>
+          m._id === messageId ? { ...m, reactions: res.data.reactions } : m
+        ),
+      });
+    } catch (err) {
+      console.log(err);
+    }
+  },
+
+  updateReaction: (messageId, reactions) => {
+    set({
+      messages: get().messages.map((m) =>
+        m._id === messageId ? { ...m, reactions } : m
+      ),
+    });
   },
 }));

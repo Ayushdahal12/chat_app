@@ -30,6 +30,8 @@ const HomePage = () => {
           background: #f0f4ff;
           font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
           color: #0f172a;
+          display: flex;
+          flex-direction: column;
         }
 
         /* ── NAVBAR ── */
@@ -41,6 +43,7 @@ const HomePage = () => {
           padding: 0 20px;
           box-shadow: 0 4px 24px rgba(25,96,241,0.35);
         }
+ 
         @media(min-width:768px){ .hp-nav{ height:72px; padding:0 48px; } }
 
         .hp-logo { display:flex; align-items:flex-end; cursor:pointer; gap:1px; }
@@ -400,6 +403,32 @@ const HomePage = () => {
         .hp-skel-avatar { width:88px; height:88px; border-radius:26px; }
         .hp-skel-line { height:11px; }
         .hp-skel-btn { width:100%; height:46px; border-radius:18px; }
+
+        /* ── FOOTER ── */
+        .hp-footer {
+          margin-top: auto;
+          padding: 40px 20px;
+          background: #fff;
+          border-top: 1px solid #e2e8f0;
+          text-align: center;
+        }
+        .hp-footer-text {
+          font-size: 13px;
+          font-weight: 700;
+          color: #64748b;
+          margin-bottom: 8px;
+        }
+        .hp-footer-email {
+          font-size: 12px;
+          font-weight: 800;
+          color: #1960F1;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+        .hp-footer-email:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
       `}</style>
 
       <div className="hp-root" data-theme={theme}>
@@ -489,14 +518,14 @@ const HomePage = () => {
           {/* GRID */}
           {isLoading ? (
             <div className="hp-grid">
-              {[1,2,3,4].map(i => (
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className="hp-skeleton-card">
                   <div className="hp-skel hp-skel-avatar" />
                   <div className="hp-skel hp-skel-line" style={{ width: "55%" }} />
                   <div className="hp-skel hp-skel-line" style={{ width: "35%" }} />
-                  <div style={{ display:"flex", gap:8, width:"100%", justifyContent:"center" }}>
-                    <div className="hp-skel hp-skel-line" style={{ width:70, height:30, borderRadius:8 }} />
-                    <div className="hp-skel hp-skel-line" style={{ width:70, height:30, borderRadius:8 }} />
+                  <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "center" }}>
+                    <div className="hp-skel hp-skel-line" style={{ width: 70, height: 30, borderRadius: 8 }} />
+                    <div className="hp-skel hp-skel-line" style={{ width: 70, height: 30, borderRadius: 8 }} />
                   </div>
                   <div className="hp-skel hp-skel-btn" />
                 </div>
@@ -563,6 +592,24 @@ const HomePage = () => {
             </div>
           )}
         </main>
+
+        {/* ── FOOTER ── */}
+        <footer className="hp-footer">
+          <p className="hp-footer-text">
+            Created By{" "}
+            <a
+              href="https://ayushdahal.info.np"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#0f172a", textDecoration: "none" }}
+            >
+              Ayush Dahal
+            </a>
+          </p>
+          <a href="mailto:ayushdahal98@gmail.com" className="hp-footer-email">
+            For any query: ayushdahal98@gmail.com
+          </a>
+        </footer>
       </div>
     </>
   );
