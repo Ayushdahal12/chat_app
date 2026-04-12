@@ -73,4 +73,6 @@ workbox-*.js
 # ===========================
 *.pem
 .vercel
-.render
+.rendernode_modules/
+Backend/node_modules/
+Frontend/node_modules/
