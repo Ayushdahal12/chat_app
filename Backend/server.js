@@ -48,25 +48,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
 
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(frontendDist, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript");
-      }
-      if (filePath.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      }
-    }
-  }));
-
-  app.get("*", (req, res) => {
-    if (req.path.startsWith("/api")) {
-      return res.status(404).json({ error: "API not found" });
-    }
-    res.sendFile(path.join(frontendDist, "index.html"));
-  });
-}
+// ✅ Simple 404 handler for unknown routes
+app.use((req, res) => {
+  res.status(404).json({ error: "API route not found" });
+});
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
