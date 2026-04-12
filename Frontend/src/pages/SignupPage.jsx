@@ -14,6 +14,14 @@ const SignupPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Password Validation: 8 chars, 1 letter, 1 number
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError("Password must be at least 8 characters and include 1 letter and 1 number");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await axiosInstance.post("/auth/signup", formData);
@@ -42,7 +50,7 @@ const SignupPage = () => {
               गफ<span className="text-blue-300">.</span>
             </h1>
             <p className="text-blue-100/70 text-sm font-medium">
-              Start your journey with Nepal's best chat.
+              Start your journey with Nepal's best <br /> chat app
             </p>
             <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] mt-12">
               BY AYUSH____
@@ -60,7 +68,7 @@ const SignupPage = () => {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center">
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center leading-tight">
               {error}
             </div>
           )}
@@ -80,8 +88,8 @@ const SignupPage = () => {
                 <input
                   type="text"
                   required
-                  placeholder="cooluser123"
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm"
+                  placeholder="Enter your username "
+                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 />
@@ -102,7 +110,7 @@ const SignupPage = () => {
                   type="email"
                   required
                   placeholder="you@example.com"
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm"
+                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -123,7 +131,7 @@ const SignupPage = () => {
                   type={showPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
-                  className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm"
+                  className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />

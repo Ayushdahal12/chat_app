@@ -596,7 +596,15 @@ const HomePage = () => {
         {/* ── FOOTER ── */}
         <footer className="hp-footer">
           <p className="hp-footer-text">
-            © All Rights Reserved by <span style={{ color: '#0f172a' }}>Ayush Dahal</span>
+            Created By{" "}
+            <a
+              href="https://ayushdahal.info.np"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#0f172a", textDecoration: "none" }}
+            >
+              Ayush Dahal
+            </a>
           </p>
           <a href="mailto:ayushdahal98@gmail.com" className="hp-footer-email">
             For any query: ayushdahal98@gmail.com
