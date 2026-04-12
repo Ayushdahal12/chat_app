@@ -1,11 +1,9 @@
 import { create } from "zustand";
 import { io } from "socket.io-client";
-import { useUserStore } from "./useUserStore";
 
-
-const SOCKET_URL = window.location.hostname === "localhost"
+const SOCKET_URL = import.meta.env.MODE === "development"
   ? "http://localhost:8080"
-  : "https://dioicous-nonorthodoxly-carl.ngrok-free.dev";
+  : "https://chat-app-z2ay.onrender.com";
 
 export const useSocketStore = create((set, get) => ({
   socket: null,
@@ -17,36 +15,47 @@ export const useSocketStore = create((set, get) => ({
 
     const socket = io(SOCKET_URL, {
       query: { userId },
-      transports: ["websocket"], // force websocket, avoid polling issues with ngrok
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
+    // ✅ Debug logs
+    socket.on("connect", () => {
+      console.log("✅ Socket connected!", socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.log("❌ Socket error:", err.message);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("⚠️ Socket disconnected:", reason);
+    });
+
+    // ✅ Online users
     socket.on("getOnlineUsers", (users) => {
+      console.log("Online users:", users);
       set({ onlineUsers: users });
     });
 
+    // ✅ Video call events
     socket.on("receiveCall", ({ signal, from, username }) => {
-      console.log("📞 Incoming call from:", username, from);
       set({ incomingCall: { signal, from, username } });
     });
 
-
-    socket.on("newMessage", (message) => {
-      useUserStore.getState().incrementUnread(message.senderId);
+    socket.on("callEnded", () => {
+      set({ incomingCall: null });
     });
-
-    const SOCKET_URL = import.meta.env.MODE === "development"
-      ? "http://localhost:8080"
-      : "https://chat-app-z2ay.onrender.com";
-
-    // NOTE: do NOT handle callEnded here — VideoCallPage handles it directly
-    // Handling it here caused a race condition that wiped incomingCall too early
 
     set({ socket });
   },
 
   disconnectSocket: () => {
     get().socket?.disconnect();
-    set({ socket: null, incomingCall: null });
+    set({ socket: null, onlineUsers: [], incomingCall: null });
   },
 
   clearIncomingCall: () => set({ incomingCall: null }),

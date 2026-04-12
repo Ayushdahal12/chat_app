@@ -1,15 +1,11 @@
 import path from "path";
 import { fileURLToPath } from "url";
-
-// ✅ STEP 1 — Set __dirname FIRST
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ STEP 2 — Load .env with EXACT path SECOND
 import dotenv from "dotenv";
 dotenv.config({ path: path.join(__dirname, ".env") });
 
-// ✅ STEP 3 — Now import everything else
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -20,12 +16,9 @@ import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./socket/socket.js";
 import postRoutes from "./routes/post.route.js";
 
-const PORT = process.env.PORT || 8080;
-const frontendDist = path.join(__dirname, "../Frontend/dist");
+const PORT = process.env.PORT || 10000;
 
-console.log("✅ MONGO_URI:", process.env.MONGO_URI ? "Loaded" : "❌ MISSING");
-console.log("✅ Frontend path:", frontendDist);
-
+// ✅ CORS
 app.use(cors({
   origin: [
     "http://localhost:5173",
@@ -38,21 +31,24 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 }));
 
-// ✅ Handle preflight requests
+// ✅ Handle preflight
 app.options("*", cors());
+
 app.use(express.json());
 app.use(cookieParser());
 
+// ✅ API Routes
 app.use("/api/posts", postRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
 
-// ✅ Simple 404 handler for unknown routes
+// ✅ 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "API route not found" });
 });
 
+// ✅ Connect DB and start server
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB connected ✅");
