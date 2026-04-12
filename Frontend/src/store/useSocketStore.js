@@ -29,10 +29,14 @@ export const useSocketStore = create((set, get) => ({
       set({ incomingCall: { signal, from, username } });
     });
 
-    
+
     socket.on("newMessage", (message) => {
       useUserStore.getState().incrementUnread(message.senderId);
     });
+
+    const SOCKET_URL = import.meta.env.MODE === "development"
+      ? "http://localhost:8080"
+      : "https://chat-app-z2ay.onrender.com";
 
     // NOTE: do NOT handle callEnded here — VideoCallPage handles it directly
     // Handling it here caused a race condition that wiped incomingCall too early

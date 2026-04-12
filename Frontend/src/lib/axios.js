@@ -1,18 +1,12 @@
 import axios from "axios";
 
-const baseURL = window.location.hostname === "localhost"
+const baseURL = import.meta.env.MODE === "development"
   ? "/api"
-  : `${window.location.origin}/api`;
+  : `https://chat-app-z2ay.onrender.com/api`;
 
 const axiosInstance = axios.create({
   baseURL,
   withCredentials: true,
 });
-
-// axios.get("/api/users/me", {
-//   headers: {
-//     Authorization: `Bearer ${token}`,
-//   },
-// });
 
 export default axiosInstance;
