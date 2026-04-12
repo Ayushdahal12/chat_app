@@ -9,10 +9,12 @@ const io = new Server(server, {
   cors: {
     origin: [
       "http://localhost:5173",
+      "http://localhost:8080",
       "https://guff-app.vercel.app",
-      "https://chat-app-green-pi.vercel.app"
+      "https://chat-app-green-pi.vercel.app",
     ],
     credentials: true,
+    methods: ["GET", "POST"],
   },
 });
 

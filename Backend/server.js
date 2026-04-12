@@ -29,12 +29,17 @@ console.log("✅ Frontend path:", frontendDist);
 app.use(cors({
   origin: [
     "http://localhost:5173",
+    "http://localhost:8080",
     "https://guff-app.vercel.app",
-    "https://chat-app-green-pi.vercel.app"
+    "https://chat-app-green-pi.vercel.app",
   ],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 }));
 
+// ✅ Handle preflight requests
+app.options("*", cors());
 app.use(express.json());
 app.use(cookieParser());
 
