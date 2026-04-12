@@ -6,6 +6,9 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   profilePic: { type: String, default: "" },
   interests: [{ type: String }],
+  isVerified: { type: Boolean, default: false },
+  otp: { type: String },
+  otpExpiry: { type: Date },
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);

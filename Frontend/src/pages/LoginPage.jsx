@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react"; 
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isExiting, setIsExiting] = useState(false);
 
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
@@ -15,118 +17,133 @@ const LoginPage = () => {
     e.preventDefault();
     setError("");
     const res = await login(formData);
-    if (res.success) navigate("/");
-    else setError(res.message);
+    if (res?.success) {
+      setIsExiting(true);
+      setTimeout(() => navigate("/"), 600);
+    } else {
+      setError(res?.message || "Invalid email or password");
+    }
   };
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center relative overflow-hidden bg-[#030303] px-4 select-none touch-none">
-      
-      {/* Cinematic Background Lighting */}
-      <div className="absolute top-[-25%] left-[-15%] w-[90%] h-[80%] bg-primary/20 blur-[130px] rounded-full animate-pulse" />
-      <div className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] bg-blue-500/10 blur-[110px] rounded-full" />
-
-      {/* The Main Login Card */}
-      <div className="relative w-full max-w-[420px] bg-white/[0.02] backdrop-blur-[50px] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] rounded-[3.5rem] p-10 md:p-12">
-        
-        {/* Nepali Branding Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-6">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-            <span className="text-[9px] text-white/60 font-black uppercase tracking-[0.3em]">CHAT & CALL</span>
-          </div>
-          
-          {/* THE BIG LOGO */}
-          <h1 className="text-7xl font-black text-white tracking-tighter leading-none mb-2">
-            गफ<span className="text-primary text-6xl">.</span>
-          </h1>
-          <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.4em]">BY AYUSH____</p>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-500/5 border border-red-500/20 text-red-400 text-[11px] font-bold uppercase tracking-wider text-center">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Email Input Group */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-white/70 uppercase tracking-[0.2em] ml-4">Email Address</label>
-            <div className="relative group">
-              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
-                <Mail size={18} strokeWidth={2.5} />
-              </div>
-              <input
-                type="email"
-                placeholder="name@email.com"
-                className="w-full pl-14 pr-6 py-4.5 rounded-[1.8rem] bg-white/[0.03] border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:bg-white/[0.07] transition-all duration-300"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Password Input Group */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center px-4">
-              <label className="text-[10px] font-black text-white/70 uppercase tracking-[0.2em]">Password</label>
-              <Link to="/forgot-password" hidden={isLoading} className="text-[9px] font-black text-primary hover:text-white transition-colors uppercase">
-                Forgot?
-              </Link>
-            </div>
-            <div className="relative group">
-              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-primary transition-colors">
-                <Lock size={18} strokeWidth={2.5} />
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="w-full pl-14 pr-14 py-4.5 rounded-[1.8rem] bg-white/[0.03] border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-primary/40 focus:bg-white/[0.07] transition-all duration-300"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full mt-4 group relative py-5 rounded-[1.8rem] bg-primary text-white font-black text-[11px] uppercase tracking-[0.25em] shadow-[0_20px_40px_rgba(var(--p),0.3)] hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden"
+    <div className="min-h-screen flex items-center justify-center bg-[#0a46b3] p-4 overflow-hidden font-sans">
+      <AnimatePresence>
+        {!isExiting && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ x: "120vw", opacity: 0, transition: { duration: 0.7, ease: "easeIn" } }}
+            className="relative w-full max-w-[900px] min-h-[600px] bg-white rounded-[3.5rem] shadow-[0_60px_120px_-15px_rgba(0,0,0,0.35)] flex flex-col md:flex-row-reverse overflow-hidden border border-white/20"
           >
-             <div className="absolute inset-0 bg-white/10 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300" />
-            {isLoading ? (
-              <span className="loading loading-spinner loading-xs" />
-            ) : (
-              <>
-                <span className="relative">Start Chatting</span>
-                <ArrowRight className="w-4 h-4 relative group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
-          </button>
-        </form>
 
-        {/* Footer Link */}
-        <div className="mt-12 text-center">
-          <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">
-            Don't have an account?{" "}
-            <Link to="/signup" className="text-primary hover:text-white transition-colors ml-1 border-b border-primary/20">
-              Sign Up Now
-            </Link>
-          </p>
-        </div>
-      </div>
+            {/* RIGHT SIDE (BRANDING) */}
+            <div className="hidden md:flex w-1/2 bg-gradient-to-br from-[#1e60ff] to-[#0a46b3] relative p-12 text-white flex-col justify-center items-center overflow-hidden">
+              <div className="absolute -bottom-20 -right-20 w-[25rem] h-[25rem] bg-blue-400/20 rounded-full blur-[100px]" />
+              <div className="absolute top-1/4 left-[-100px] w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+
+              <div className="relative z-10 text-center flex flex-col items-center">
+                <h1 className="text-7xl md:text-8xl font-black tracking-tighter leading-none mb-6">
+                  गफ<span className="text-blue-300">.</span>
+                </h1>
+                <p className="text-blue-100/70 text-sm font-medium leading-relaxed max-w-[200px] mb-8">
+                  Welcome back. Nepal's best chatting app
+                </p>
+                <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.5em] mt-12">BY AYUSH____</p>
+              </div>
+            </div>
+
+            {/* LEFT SIDE (FORM) */}
+            <div className="w-full md:w-1/2 p-8 md:p-14 bg-white flex flex-col justify-center">
+              <div className="mb-8">
+                <h2 className="text-3xl font-black text-gray-950 mb-2 tracking-tight">Sign in</h2>
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Connect to your account</p>
+              </div>
+
+              {error && (
+                <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">Email Address</label>
+                  <div className="relative group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3] transition-colors">
+                      <Mail size={18} />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@email.com"
+                      className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">Password</label>
+                  <div className="relative group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3] transition-colors">
+                      <Lock size={18} />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="••••••••"
+                      className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#0a46b3] uppercase tracking-wider"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {/* ✅ Add this line below password field */}
+                  <div className="text-right pr-2">
+                    <Link
+                      to="/forgot-password"
+                      className="text-[9px] font-black text-[#0a46b3] uppercase tracking-widest hover:underline"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Start Chatting</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-10 text-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  New to Guff?{" "}
+                  <Link to="/signup" className="text-[#0a46b3] hover:underline ml-1">Create Account</Link>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

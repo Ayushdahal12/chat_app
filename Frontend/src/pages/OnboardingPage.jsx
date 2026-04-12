@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../lib/axios";
+import { Check, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
 const interests = [
   "Technology", "Music", "Gaming", "Travel", "Food",
@@ -15,7 +16,7 @@ const OnboardingPage = () => {
   const navigate = useNavigate();
 
   const toggleInterest = (interest) => {
-    setError(""); // Clear error when they start clicking
+    setError("");
     setSelected((prev) =>
       prev.includes(interest)
         ? prev.filter((i) => i !== interest)
@@ -39,111 +40,98 @@ const OnboardingPage = () => {
     }
   };
 
-  // Progress calculation for the ring
-  const progress = Math.min((selected.length / 3) * 100, 100);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-base-200/50 p-4 font-sans">
-      <div className="max-w-2xl w-full">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a46b3] p-6 font-sans select-none overflow-hidden">
+      
+      {/* BRANDING TOP */}
+      <div className="text-center mb-8">
+        <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-none">
+          गफ<span className="text-blue-300">.</span>
+        </h1>
+      </div>
+
+      {/* MAIN CARD */}
+      <div className="w-full max-w-[750px] bg-white rounded-[3.5rem] shadow-2xl p-8 md:p-14 border border-white/20">
         
-        {/* PROGRESS INDICATOR */}
-        <div className="flex justify-center mb-8">
-          <div className="relative flex items-center justify-center">
-             <div className="absolute inset-0 rounded-full border-4 border-base-300 opacity-20" />
-             <div 
-               className="w-16 h-16 rounded-full border-4 border-primary transition-all duration-700 ease-out flex items-center justify-center bg-base-100 shadow-xl"
-               style={{ 
-                 clipPath: `inset(${(100-progress)}% 0 0 0)`,
-                 borderColor: selected.length >= 3 ? '#22c55e' : '' 
-               }}
-             />
-             <span className="absolute font-black text-lg">
-               {selected.length >= 3 ? "✅" : selected.length}
-             </span>
+        <header className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 mb-4">
+            <Sparkles size={14} className="text-[#0a46b3]" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#0a46b3]">Personalize</span>
           </div>
-        </div>
+          <h2 className="text-4xl font-black text-gray-950 tracking-tight mb-2">What's your vibe?</h2>
+          <p className="text-gray-400 text-sm font-medium">
+            Select at least <span className="text-[#0a46b3] font-bold">3 interests</span> to customize your feed.
+          </p>
+        </header>
 
-        {/* GLASS CARD */}
-        <div className="card bg-base-100/80 backdrop-blur-2xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.2)] border border-base-300 rounded-[3rem] overflow-hidden">
-          <div className="card-body p-8 md:p-12 items-center text-center">
-            
-            <header className="mb-8">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                What's your vibe?
-              </h1>
-              <p className="text-base-content/50 font-medium max-w-sm mx-auto">
-                Pick at least <span className="text-base-content font-bold">3 interests</span> so we can match you with the right guffs.
-              </p>
-            </header>
+        {error && (
+          <div className="mb-8 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center animate-bounce">
+            {error}
+          </div>
+        )}
 
-            {error && (
-              <div className="alert alert-error rounded-2xl py-3 mb-6 animate-bounce border-none font-bold text-sm shadow-lg shadow-error/20">
-                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* INTERESTS GRID */}
-            <div className="flex flex-wrap gap-3 justify-center mb-10">
-              {interests.map((interest) => {
-                const isSelected = selected.includes(interest);
-                return (
-                  <button
-                    key={interest}
-                    onClick={() => toggleInterest(interest)}
-                    className={`
-                      btn btn-md md:btn-lg rounded-2xl border-2 transition-all duration-300 capitalize
-                      ${isSelected 
-                        ? "btn-primary border-primary scale-110 shadow-xl shadow-primary/30 z-10" 
-                        : "btn-ghost border-base-300 opacity-60 hover:opacity-100 hover:scale-105 bg-base-200/50"
-                      }
-                    `}
-                  >
-                    {isSelected && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="mr-1 animate-in zoom-in"><polyline points="20 6 9 17 4 12"/></svg>
-                    )}
-                    {interest}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* ACTION BUTTON */}
-            <div className="w-full pt-6 border-t border-base-300/50">
+        {/* INTERESTS CHIPS */}
+        <div className="flex flex-wrap gap-3 justify-center mb-12">
+          {interests.map((interest) => {
+            const isSelected = selected.includes(interest);
+            return (
               <button
+                key={interest}
+                onClick={() => toggleInterest(interest)}
                 className={`
-                  btn btn-lg w-full md:w-64 rounded-[2rem] border-none transition-all duration-500
-                  ${selected.length >= 3 
-                    ? "btn-primary shadow-2xl shadow-primary/40 scale-105" 
-                    : "btn-disabled opacity-20"
+                  px-6 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 border-2
+                  ${isSelected 
+                    ? "bg-[#0a46b3] border-[#0a46b3] text-white shadow-xl shadow-blue-500/20 scale-105" 
+                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-blue-200 hover:text-gray-600"
                   }
                 `}
-                onClick={handleSubmit}
-                disabled={isLoading || selected.length < 3}
               >
-                {isLoading ? (
-                  <span className="loading loading-spinner" />
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <span className="font-black tracking-widest uppercase">Start Guffing</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {isSelected && <Check size={16} strokeWidth={4} className="animate-in zoom-in" />}
+                  {interest}
+                </div>
               </button>
-              
-              <p className="mt-6 text-[10px] uppercase font-black tracking-[0.3em] opacity-30">
-                {selected.length} of 3 required
-              </p>
-            </div>
-
-          </div>
+            );
+          })}
         </div>
 
-        {/* FOOTER DECOR */}
-        <p className="text-center mt-8 text-base-content/30 text-xs font-bold uppercase tracking-widest">
-          Secured by Guff Protocol • 2026
-        </p>
+        {/* PROGRESS & SUBMIT */}
+        <div className="flex flex-col items-center gap-6 pt-8 border-t border-gray-100">
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1.5">
+              {[1, 2, 3].map((s) => (
+                <div 
+                  key={s} 
+                  className={`h-2 w-8 rounded-full transition-all duration-500 ${selected.length >= s ? "bg-[#0a46b3]" : "bg-gray-100"}`} 
+                />
+              ))}
+            </div>
+            <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+              {selected.length}/3 Required
+            </span>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading || selected.length < 3}
+            className="w-full md:w-80 bg-[#0a46b3] text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-3"
+          >
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <span>Start Guffing</span>
+                <ArrowRight size={18} strokeWidth={3} />
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* FOOTER */}
+      <p className="mt-8 text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">
+        By Ayush____ • 2026
+      </p>
     </div>
   );
 };

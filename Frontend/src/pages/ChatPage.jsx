@@ -5,28 +5,13 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useSocketStore } from "../store/useSocketStore";
 import axiosInstance from "../lib/axios";
 import EmojiPicker from "emoji-picker-react";
+import {
+  ArrowLeft, Video, Smile, Image as ImageIcon,
+  Send, Loader2, MoreHorizontal, CheckCheck, X
+} from "lucide-react";
 
 const CLOUDINARY_CLOUD_NAME = "dhcpaoxx1";
 const CLOUDINARY_UPLOAD_PRESET = "gg5z1art";
-
-// Premium Zero-Dependency Icons
-const Icons = {
-  Back: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-  ),
-  Video: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 10 4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14V10z"/><rect width="14" height="12" x="1" y="6" rx="2"/></svg>
-  ),
-  Emoji: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
-  ),
-  Image: () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><line x1="16" x2="22" y1="5" y2="5"/><line x1="19" x2="19" y1="2" y2="8"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-  ),
-  Send: ({ active }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${active ? 'rotate-0' : '-rotate-45 opacity-30'}`}><path d="m5 12 14-7-7 14-2-7-5-2Z"/><path d="m11 13 8-8"/></svg>
-  )
-};
 
 const ChatPage = () => {
   const { id } = useParams();
@@ -34,7 +19,7 @@ const ChatPage = () => {
   const { authUser } = useAuthStore();
   const { messages, getMessages, sendMessage, addMessage } = useMessageStore();
   const { socket, onlineUsers } = useSocketStore();
-  
+
   const [text, setText] = useState("");
   const [receiver, setReceiver] = useState(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -55,16 +40,35 @@ const ChatPage = () => {
       await getMessages(id);
       try {
         const res = await axiosInstance.get("/users/suggested");
-        const user = res.data.find((u) => u._id === id);
+        const users = Array.isArray(res.data) ? res.data : [];
+        const user = users.find((u) => u._id === id);
         if (user) setReceiver(user);
-      } catch (e) { console.error("Error fetching user", e); }
+      } catch (e) {}
+
+      try {
+        await axiosInstance.put(`/messages/seen/${id}`);
+        socket?.emit("messageSeen", { to: id });
+      } catch (e) {}
+
       setIsLoading(false);
     };
     fetchData();
-  }, [id, getMessages]);
+  }, [id]);
+
+  // Initialize seen from loaded messages
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const anySeenByThem = messages.some(
+      (m) => m.senderId === authUser._id && m.seen === true
+    );
+    if (anySeenByThem) {
+      setSeenMessages((prev) => ({ ...prev, [id]: true }));
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (!socket) return;
+
     socket.on("newMessage", (message) => {
       if (message.senderId === id) {
         addMessage(message);
@@ -72,17 +76,28 @@ const ChatPage = () => {
         socket.emit("messageSeen", { to: id });
       }
     });
-    socket.on("typing", ({ from }) => { if (from === id) setIsTyping(true); });
-    socket.on("stopTyping", ({ from }) => { if (from === id) setIsTyping(false); });
-    socket.on("messageSeen", ({ from }) => { if (from === id) setSeenMessages((prev) => ({ ...prev, [id]: true })); });
-    
+
+    socket.on("typing", ({ from }) => {
+      if (from === id) setIsTyping(true);
+    });
+
+    socket.on("stopTyping", ({ from }) => {
+      if (from === id) setIsTyping(false);
+    });
+
+    socket.on("messageSeen", ({ from }) => {
+      if (from === id) {
+        setSeenMessages((prev) => ({ ...prev, [id]: true }));
+      }
+    });
+
     return () => {
       socket.off("newMessage");
       socket.off("typing");
       socket.off("stopTyping");
       socket.off("messageSeen");
     };
-  }, [socket, id, addMessage]);
+  }, [socket, id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,6 +105,8 @@ const ChatPage = () => {
 
   const handleTyping = (e) => {
     setText(e.target.value);
+    e.target.style.height = "auto";
+    e.target.style.height = `${e.target.scrollHeight}px`;
     socket?.emit("typing", { to: id });
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -97,37 +114,29 @@ const ChatPage = () => {
     }, 2000);
   };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
-    const data = await res.json();
-    return data.secure_url;
-  };
-
   const handleSend = async () => {
     if (!text.trim() && !imagePreview) return;
     socket?.emit("stopTyping", { to: id });
+    clearTimeout(typingTimeoutRef.current);
     setIsUploading(true);
     try {
       let imageUrl = null;
       if (imagePreview) {
-        const file = imageInputRef.current?.files[0];
-        if (file) imageUrl = await uploadImage(file);
+        const formData = new FormData();
+        formData.append("file", imageInputRef.current?.files[0]);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: "POST", body: formData }
+        );
+        const data = await res.json();
+        imageUrl = data.secure_url;
       }
       await sendMessage(id, text, "text", 0, imageUrl);
       setText("");
       setImagePreview(null);
       setShowEmoji(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
     } catch (err) {
       console.error(err);
     } finally {
@@ -135,12 +144,20 @@ const ChatPage = () => {
     }
   };
 
-  const handleKeyDown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+  const formatTime = (date) =>
+    new Date(date).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
-  const isOnline = onlineUsers.includes(id);
   const formatDate = (date) => {
     const d = new Date(date);
-    return d.toDateString() === new Date().toDateString() ? "Today" : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return "Today";
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
   const groupedMessages = messages.reduce((groups, message) => {
@@ -150,133 +167,302 @@ const ChatPage = () => {
     return groups;
   }, {});
 
-  const lastMyMessageId = messages.filter((m) => m.senderId === authUser._id).slice(-1)[0]?._id;
+  const myMessages = messages.filter((m) => m.senderId === authUser._id);
+  const lastMyMessageId = myMessages[myMessages.length - 1]?._id;
+
+  const isOnline = onlineUsers.includes(id);
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-[#F8F9FD] overflow-hidden relative">
-      
-      {/* HEADER: User Name सँग गफ */}
-      <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-gray-100 px-4 md:px-12 h-20 flex items-center gap-4">
-        <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 text-gray-400 transition-colors" onClick={() => navigate("/")}>
-          <Icons.Back />
-        </button>
+    <div className="h-[100dvh] flex flex-col bg-[#F8F9FD] font-sans overflow-hidden">
 
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative cursor-pointer group" onClick={() => navigate(`/profile/${id}`)}>
-            <div className="w-12 h-12 rounded-2xl overflow-hidden ring-4 ring-white shadow-md transition-all">
-              <img src={receiver?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${receiver?.username}`} alt="avatar" />
+      {/* HEADER */}
+      <header className="bg-white/90 backdrop-blur-2xl border-b border-gray-100 px-6 md:px-12 py-4 flex items-center justify-between z-50">
+        <div className="flex items-center gap-5">
+          <button
+            onClick={() => navigate("/")}
+            className="p-3 rounded-full hover:bg-gray-100 text-gray-400 transition-all"
+          >
+            <ArrowLeft size={22} strokeWidth={3} />
+          </button>
+
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <img
+                src={receiver?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${receiver?.username}`}
+                className="w-14 h-14 rounded-2xl object-cover shadow-sm border-2 border-white"
+                alt="receiver"
+              />
+              {isOnline && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-4 border-white" />
+              )}
             </div>
-            {isOnline && <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />}
-          </div>
-          <div>
-            <h2 className="font-black text-gray-900 text-lg tracking-tight">
-              {receiver?.username || "User"} <span className="text-primary">सँग गफ</span>
-            </h2>
-            <p className={`text-[9px] uppercase tracking-widest font-black ${isOnline ? "text-green-600" : "text-gray-400"}`}>
-              {isOnline ? "Online" : "Away"}
-            </p>
+            <div>
+              <h2 className="font-black text-gray-900 leading-tight tracking-tight">
+                {receiver?.username || "Guff User"}{" "}
+                <span className="text-[#0a46b3]">सँग गफ</span>
+              </h2>
+              <p className={`text-[10px] uppercase font-black tracking-widest mt-1 ${
+                isTyping
+                  ? "text-green-500 animate-pulse"
+                  : isOnline
+                  ? "text-green-500"
+                  : "text-gray-300"
+              }`}>
+                {isTyping ? "✍️ typing..." : isOnline ? "Active Now" : "Offline"}
+              </p>
+            </div>
           </div>
         </div>
 
-        <button className="hidden sm:flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-100 rounded-2xl text-primary font-black text-xs uppercase tracking-widest shadow-sm hover:shadow-md transition-all" onClick={() => navigate(`/call/${id}`)}>
-          <Icons.Video /> Video Call
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(`/call/${id}`)}
+            className="p-4 bg-blue-50 text-[#0a46b3] rounded-2xl hover:bg-blue-100 transition-all"
+          >
+            <Video size={20} strokeWidth={2.5} />
+          </button>
+          <button className="p-4 text-gray-300 hover:text-gray-600 transition-all">
+            <MoreHorizontal size={24} />
+          </button>
+        </div>
       </header>
 
-      {/* CHAT AREA */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-12 py-8 w-full max-w-5xl mx-auto space-y-8 no-scrollbar">
-        {Object.entries(groupedMessages).map(([date, msgs]) => (
-          <div key={date} className="space-y-6">
-            <div className="flex items-center gap-6 opacity-20">
-              <div className="h-px flex-1 bg-gray-400" />
-              <span className="text-[9px] font-black text-gray-600 uppercase tracking-[0.4em]">{date}</span>
-              <div className="h-px flex-1 bg-gray-400" />
+      {/* MESSAGES AREA */}
+      <main className="flex-1 overflow-y-auto p-6 md:px-12 py-8">
+        <div className="max-w-4xl mx-auto space-y-2">
+          {isLoading ? (
+            <div className="flex justify-center mt-20">
+              <Loader2 className="animate-spin text-blue-500" size={32} />
             </div>
-
-            {msgs.map((msg) => {
-              const isMe = msg.senderId === authUser._id;
-              const isSeen = msg.seen || (msg._id === lastMyMessageId && seenMessages[id]);
-
-              return (
-                <div key={msg._id} className={`flex ${isMe ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2`}>
-                  <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[85%] md:max-w-[70%]`}>
-                    {msg.image && (
-                      <div className="mb-2 rounded-[1.8rem] overflow-hidden border border-white shadow-lg">
-                        <img src={msg.image} alt="shared" className="max-h-72 w-auto object-cover" />
-                      </div>
-                    )}
-                    {msg.text && (
-                      <div className={`px-6 py-3.5 rounded-[1.8rem] text-sm font-medium leading-relaxed shadow-sm
-                        ${isMe ? "bg-primary text-white rounded-tr-none" : "bg-white text-gray-800 border border-gray-100 rounded-tl-none"}
-                      `}>
-                        {msg.text}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 px-2">
-                      <span className="text-[8px] font-black text-gray-400 uppercase">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {isMe && <span className={`text-[10px] ${isSeen ? "text-blue-500" : "text-gray-300"}`}>{isSeen ? "✓✓" : "✓"}</span>}
-                    </div>
-                  </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center mt-20 text-gray-300">
+              <img
+                src={receiver?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${receiver?.username}`}
+                className="w-20 h-20 rounded-2xl mb-4 shadow-md"
+                alt="avatar"
+              />
+              <p className="font-black text-gray-400">{receiver?.username}</p>
+              <p className="text-sm mt-1">Say hi to start the conversation! 👋</p>
+            </div>
+          ) : (
+            Object.entries(groupedMessages).map(([date, msgs]) => (
+              <div key={date}>
+                {/* Date separator */}
+                <div className="flex items-center gap-3 my-6">
+                  <div className="flex-1 h-px bg-gray-100" />
+                  <span className="text-[10px] text-gray-300 font-black uppercase tracking-widest px-2">
+                    {date}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-100" />
                 </div>
-              );
-            })}
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
 
-      {/* TYPING INDICATOR */}
-      {isTyping && (
-        <div className="px-6 md:px-12 py-2 max-w-5xl mx-auto w-full">
-          <div className="flex items-center gap-3 px-4 py-2 w-fit bg-white border border-gray-100 rounded-full shadow-sm animate-in fade-in">
-             <div className="flex gap-1">
-               <div className="w-1 h-1 bg-primary rounded-full animate-bounce" />
-               <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
-             </div>
-             <span className="text-[9px] font-black text-primary uppercase tracking-widest">Guffing...</span>
-          </div>
+                {msgs.map((msg, idx) => {
+                  const isMe = msg.senderId === authUser._id;
+                  const isLastMyMsg = msg._id === lastMyMessageId;
+                  const isSeen = msg.seen || (isLastMyMsg && seenMessages[id]);
+
+                  // ✅ Call message
+                  if (msg.type && msg.type !== "text") {
+                    const icon =
+                      msg.type === "call_ended" ? "📹" :
+                      msg.type === "call_missed" ? "📵" : "📞";
+                    const label =
+                      msg.type === "call_ended"
+                        ? `Video call · ${Math.floor(msg.callDuration / 60)}m ${msg.callDuration % 60}s`
+                        : "Missed video call";
+                    return (
+                      <div key={msg._id} className="flex justify-center my-3">
+                        <div className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold ${
+                          msg.type === "call_missed"
+                            ? "bg-red-50 text-red-400 border border-red-100"
+                            : "bg-blue-50 text-blue-400 border border-blue-100"
+                        }`}>
+                          {icon} {label}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Normal message
+                  return (
+                    <div
+                      key={msg._id || idx}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} mb-1`}
+                    >
+                      {/* Receiver avatar */}
+                      {!isMe && (
+                        <img
+                          src={receiver?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${receiver?.username}`}
+                          className="w-8 h-8 rounded-xl object-cover mr-3 self-end shadow-sm"
+                          alt="avatar"
+                        />
+                      )}
+
+                      <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[75%]`}>
+                        {/* Image */}
+                        {msg.image && (
+                          <div
+                            className="mb-2 rounded-[2rem] overflow-hidden border-4 border-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform"
+                            onClick={() => window.open(msg.image, "_blank")}
+                          >
+                            <img
+                              src={msg.image}
+                              alt="shared"
+                              className="max-h-64 w-full object-cover"
+                            />
+                          </div>
+                        )}
+
+                        {/* Text */}
+                        {msg.text && (
+                          <div className={`px-6 py-3 rounded-[2rem] text-sm font-semibold leading-relaxed shadow-sm ${
+                            isMe
+                              ? "bg-[#0a46b3] text-white rounded-tr-none"
+                              : "bg-white text-gray-700 rounded-tl-none border border-gray-100"
+                          }`}>
+                            {msg.text}
+                          </div>
+                        )}
+
+                        {/* Time + seen */}
+                        <div className="mt-1 px-2 flex items-center gap-1">
+                          <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
+                            {formatTime(msg.createdAt)}
+                          </span>
+                          {isMe && (
+                            <CheckCheck
+                              size={14}
+                              className={isSeen ? "text-blue-500" : "text-gray-200"}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
+
+          {/* Typing indicator */}
+          {isTyping && (
+            <div className="flex justify-start mb-2">
+              <img
+                src={receiver?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${receiver?.username}`}
+                className="w-8 h-8 rounded-xl object-cover mr-3 self-end shadow-sm"
+                alt="avatar"
+              />
+              <div className="bg-white rounded-[2rem] rounded-tl-none px-5 py-4 shadow-sm border border-gray-100 flex items-center gap-1">
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
         </div>
-      )}
+      </main>
 
-      {/* FOOTER: Floating Input */}
-      <footer className="p-6 md:p-10 relative">
-        <div className="max-w-4xl mx-auto relative">
-          
-          <div className="bg-white/90 backdrop-blur-2xl border border-gray-200 rounded-[2.5rem] p-2 flex items-center gap-2 shadow-[0_15px_30px_rgba(0,0,0,0.04)] focus-within:ring-4 ring-primary/5 transition-all">
-            <button className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${showEmoji ? 'text-primary bg-primary/5' : 'text-gray-400'}`} onClick={() => setShowEmoji(!showEmoji)}>
-              <Icons.Emoji />
+      {/* FOOTER */}
+      <footer className="p-4 md:p-6 relative bg-white/50 backdrop-blur-md border-t border-gray-100">
+        <div className="max-w-4xl mx-auto">
+
+          {/* Image preview */}
+          {imagePreview && (
+            <div className="absolute bottom-[100%] left-0 w-full p-4">
+              <div className="relative w-full max-w-sm mx-auto bg-white p-3 rounded-[3rem] shadow-2xl border border-gray-100">
+                <img
+                  src={imagePreview}
+                  className="w-full h-64 object-cover rounded-[2.2rem]"
+                  alt="preview"
+                />
+                <button
+                  onClick={() => {
+                    setImagePreview(null);
+                    if (imageInputRef.current) imageInputRef.current.value = "";
+                  }}
+                  className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-2 shadow-xl border-4 border-white hover:scale-110 transition-all"
+                >
+                  <X size={16} strokeWidth={3} />
+                </button>
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  Ready to send
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-end gap-3 bg-white p-3 rounded-[3rem] shadow-sm border border-gray-100 focus-within:ring-4 ring-blue-500/5 transition-all">
+
+            {/* Emoji */}
+            <button
+              onClick={() => setShowEmoji(!showEmoji)}
+              className="w-12 h-12 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-50 transition-all"
+            >
+              <Smile size={26} strokeWidth={2.5} />
             </button>
 
-            <label className="w-11 h-11 flex items-center justify-center rounded-full text-gray-400 cursor-pointer">
-              <Icons.Image />
-              <input ref={imageInputRef} type="file" className="hidden" onChange={handleImageSelect} accept="image/*" />
+            {/* Image */}
+            <label className="w-12 h-12 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-50 cursor-pointer transition-all">
+              <ImageIcon size={26} strokeWidth={2.5} />
+              <input
+                ref={imageInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const reader = new FileReader();
+                  reader.onload = () => setImagePreview(reader.result);
+                  reader.readAsDataURL(e.target.files[0]);
+                }}
+              />
             </label>
 
-            <input
+            {/* Text input */}
+            <textarea
               ref={inputRef}
-              type="text"
-              placeholder="यहाँ केहि लेख्नुहोस्..."
-              className="flex-1 bg-transparent border-none focus:ring-0 px-2 text-gray-800 text-sm md:text-base font-medium placeholder:text-gray-300"
+              rows="1"
+              placeholder="Guff लेख्नुहोस्..."
+              className="flex-1 max-h-32 py-3 px-2 bg-transparent border-none focus:ring-0 text-gray-800 font-bold placeholder:text-gray-200 resize-none leading-relaxed outline-none"
               value={text}
               onChange={handleTyping}
-              onKeyDown={handleKeyDown}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
             />
 
-            <button 
-              disabled={(!text.trim() && !imagePreview) || isUploading}
+            {/* Send */}
+            <button
               onClick={handleSend}
-              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all
-                ${(text.trim() || imagePreview) ? 'bg-primary text-white shadow-md active:scale-90' : 'bg-gray-50 text-gray-300'}`}
+              disabled={(!text.trim() && !imagePreview) || isUploading}
+              className={`w-14 h-14 flex items-center justify-center rounded-full transition-all duration-300 ${
+                text.trim() || imagePreview
+                  ? "bg-[#0a46b3] text-white shadow-xl scale-105"
+                  : "bg-gray-50 text-gray-200"
+              }`}
             >
-              {isUploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icons.Send active={text.trim() || imagePreview} />}
+              {isUploading
+                ? <Loader2 className="animate-spin" size={20} />
+                : <Send size={22} strokeWidth={3} />
+              }
             </button>
           </div>
 
+          {/* Emoji picker */}
           {showEmoji && (
-            <div className="absolute bottom-[110%] right-0 z-50 animate-in fade-in zoom-in-95 origin-bottom-right rounded-3xl overflow-hidden border border-gray-200 shadow-2xl">
-              <EmojiPicker onEmojiClick={(e) => { setText(p => p + e.emoji); inputRef.current?.focus(); }} width={320} height={400} />
+            <div className="absolute bottom-[115%] right-4 z-50 shadow-2xl rounded-[2rem] overflow-hidden">
+              <EmojiPicker
+                onEmojiClick={(e) => {
+                  setText((prev) => prev + e.emoji);
+                  inputRef.current?.focus();
+                }}
+                width={320}
+                height={380}
+              />
             </div>
           )}
         </div>

@@ -11,6 +11,7 @@ import IncomingCallModal from "./components/IncomingCallModal";
 import ProfilePage from "./pages/ProfilePage";
 import OTPPage from "./pages/OTPPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import FeedPage from "./pages/FeedPage";
 
 
 
@@ -36,6 +37,7 @@ function App() {
         <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
         <Route path="/verify-otp" element={<OTPPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/feed" element={authUser ? <FeedPage /> : <Navigate to="/login" />} />
       </Routes>
     </>
   );
