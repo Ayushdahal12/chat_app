@@ -26,7 +26,6 @@ const SignupPage = () => {
     try {
       const res = await axiosInstance.post("/auth/signup", formData);
 
-      // IMPORTANT: safe destructuring
       const userId = res?.data?.userId;
       const email = res?.data?.email;
 
@@ -35,12 +34,11 @@ const SignupPage = () => {
         return;
       }
 
-      navigate("/verify-otp", {
-        state: {
-          userId,
-          email,
-        }
-      });
+      // ✅ FIX: store OTP data safely
+      sessionStorage.setItem("otp_userId", userId);
+      sessionStorage.setItem("otp_email", email || formData.email);
+
+      navigate("/verify-otp");
 
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
@@ -92,17 +90,13 @@ const SignupPage = () => {
                 Username
               </label>
               <div className="relative group">
-                <User
-                  className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]"
-                  size={18}
-                />
+                <User className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
                 <input
                   type="text"
                   required
-                  placeholder="Enter your username"
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
                 />
               </div>
             </div>
@@ -113,17 +107,13 @@ const SignupPage = () => {
                 Email Address
               </label>
               <div className="relative group">
-                <Mail
-                  className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]"
-                  size={18}
-                />
+                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
                 <input
                   type="email"
                   required
-                  placeholder="you@example.com"
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
                 />
               </div>
             </div>
@@ -134,24 +124,16 @@ const SignupPage = () => {
                 Password
               </label>
               <div className="relative group">
-                <Lock
-                  className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]"
-                  size={18}
-                />
+                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="••••••••"
-                  className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button type="button" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff /> : <Eye />}
                 </button>
               </div>
             </div>
@@ -159,22 +141,15 @@ const SignupPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem]"
             >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Join Community</span>
-                  <ArrowRight size={16} />
-                </>
-              )}
+              {isLoading ? <Loader2 className="animate-spin" /> : "Join Community"}
             </button>
           </form>
 
           <p className="mt-8 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
             Already have an account?{" "}
-            <Link to="/login" className="text-[#0a46b3] ml-1 uppercase font-black hover:underline">
+            <Link to="/login" className="text-[#0a46b3]">
               Login
             </Link>
           </p>
