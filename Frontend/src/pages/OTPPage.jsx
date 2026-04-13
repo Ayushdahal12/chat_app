@@ -4,6 +4,7 @@ import axiosInstance from "../lib/axios";
 
 const OTPPage = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [serverOtp, setServerOtp] = useState("");
   const [showPopup, setShowPopup] = useState(true);
   const [timeLeft, setTimeLeft] = useState(30);
 
@@ -15,13 +16,27 @@ const OTPPage = () => {
   const email = location.state?.email;
 
   // =========================
-  // AUTO OTP POPUP TIMER
+  // GET OTP FROM SESSION STORAGE
   // =========================
   useEffect(() => {
-    if (timeLeft <= 0) {
-      setShowPopup(false);
-      return;
+    const otpFromStorage = sessionStorage.getItem("otp_code");
+
+    if (otpFromStorage) {
+      setServerOtp(otpFromStorage);
     }
+
+    const popupTimer = setTimeout(() => {
+      setShowPopup(false);
+    }, 30000);
+
+    return () => clearTimeout(popupTimer);
+  }, []);
+
+  // =========================
+  // COUNTDOWN TIMER
+  // =========================
+  useEffect(() => {
+    if (timeLeft <= 0) return;
 
     const timer = setTimeout(() => {
       setTimeLeft(timeLeft - 1);
@@ -31,7 +46,7 @@ const OTPPage = () => {
   }, [timeLeft]);
 
   // =========================
-  // OTP INPUT LOGIC
+  // INPUT CHANGE
   // =========================
   const handleChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -51,6 +66,11 @@ const OTPPage = () => {
   const handleSubmit = async () => {
     const code = otp.join("");
 
+    if (code.length !== 6) {
+      alert("Enter 6 digit OTP");
+      return;
+    }
+
     try {
       await axiosInstance.post("/auth/verify-otp", {
         userId,
@@ -58,7 +78,6 @@ const OTPPage = () => {
       });
 
       navigate("/onboarding");
-
     } catch (err) {
       alert(err.response?.data?.message || "Invalid OTP");
     }
@@ -67,15 +86,17 @@ const OTPPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-600">
 
-      {/* ================= POPUP ================= */}
-      {showPopup && (
+      {/* ================= OTP POPUP ================= */}
+      {showPopup && serverOtp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-2xl text-center w-80">
+          <div className="bg-white p-6 rounded-2xl text-center w-80 shadow-xl">
 
-            <h2 className="text-lg font-bold mb-2">Your OTP</h2>
+            <h2 className="text-lg font-bold mb-2">
+              OTP Sent Successfully
+            </h2>
 
             <p className="text-3xl font-black text-blue-600 tracking-widest">
-              {otp.join("") || "------"}
+              {serverOtp}
             </p>
 
             <p className="text-sm mt-2 text-gray-500">
@@ -93,7 +114,7 @@ const OTPPage = () => {
         </div>
       )}
 
-      {/* ================= OTP BOX ================= */}
+      {/* ================= OTP INPUT ================= */}
       <div className="bg-white p-8 rounded-2xl">
 
         <h2 className="text-xl font-bold mb-4">Verify OTP</h2>

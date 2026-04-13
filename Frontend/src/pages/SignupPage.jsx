@@ -27,16 +27,14 @@ const SignupPage = () => {
 
       const userId = res?.data?.userId;
       const email = res?.data?.email;
+      const otp = res?.data?.otp;
 
-      if (!userId) {
-        setError("Signup failed. Please try again.");
-        return;
-      }
-
-      // ✅ SAFE STORAGE (production-safe pattern)
+      // save for OTP page
       sessionStorage.setItem("otp_userId", userId);
-      sessionStorage.setItem("otp_email", email || formData.email);
+      sessionStorage.setItem("otp_email", email);
+      sessionStorage.setItem("otp_code", otp);
 
+      // go OTP page
       navigate("/verify-otp");
 
     } catch (err) {
