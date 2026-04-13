@@ -42,17 +42,18 @@ io.on("connection", (socket) => {
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 
-  // ✅ Handle video call
-  socket.on("callUser", ({ userToCall, signal, from, username }) => {
-    const receiverSocketId = getReceiverSocketId(userToCall);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("receiveCall", {
-        signal,
-        from,
-        username,
-      });
-    }
-  });
+  socket.on("callUser", ({ to, signal, from, username }) => {
+  console.log("📞 callUser event:", { to, from, username });
+  console.log("🗺️ userSocketMap:", userSocketMap);
+  const receiverSocket = userSocketMap[to];
+  console.log("📡 receiver socket:", receiverSocket);
+  if (receiverSocket) {
+    io.to(receiverSocket).emit("receiveCall", { signal, from, username });
+    console.log("✅ receiveCall emitted!");
+  } else {
+    console.log("❌ receiver not found in map!");
+  }
+});
 
   socket.on("answerCall", ({ to, signal }) => {
     const receiverSocketId = getReceiverSocketId(to);
