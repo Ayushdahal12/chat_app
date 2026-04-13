@@ -4,153 +4,149 @@ import { Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 import axiosInstance from "../lib/axios";
 
 const SignupPage = () => {
-  const [formData, setFormData] = useState({ username: "", email: "", password: "" });
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: ""
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      setError("Password must be at least 8 characters and include 1 letter and 1 number");
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
 
-    setIsLoading(true);
-
     try {
+      setLoading(true);
+
       const res = await axiosInstance.post("/auth/signup", formData);
 
-      const userId = res?.data?.userId;
-      const email = res?.data?.email;
-      const otp = res?.data?.otp;
+      const { userId, email, otp } = res.data;
 
-      // save for OTP page
-      sessionStorage.setItem("otp_userId", userId);
-      sessionStorage.setItem("otp_email", email);
+      if (!userId) {
+        setError("Signup failed");
+        return;
+      }
+
+      // store OTP for popup
       sessionStorage.setItem("otp_code", otp);
 
-      // go OTP page
-      navigate("/verify-otp");
+      navigate("/verify-otp", {
+        state: { userId, email }
+      });
 
     } catch (err) {
-      setError(err.response?.data?.message || "Something went wrong");
+      setError(err.response?.data?.message || "Server error");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a46b3] p-4 font-sans overflow-hidden">
-      <div className="relative w-full max-w-[950px] min-h-[600px] bg-white rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-white/20">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-900 px-4">
 
-        {/* LEFT SIDE (UNCHANGED) */}
-        <div className="hidden md:flex w-1/2 bg-gradient-to-br from-[#1e60ff] to-[#0a46b3] relative p-12 text-white flex-col justify-center items-center overflow-hidden">
-          <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="relative z-10 text-center">
-            <h1 className="text-7xl font-black tracking-tighter leading-none mb-4">
-              गफ<span className="text-blue-300">.</span>
-            </h1>
-            <p className="text-blue-100/70 text-sm font-medium">
-              Start your journey with Nepal's best <br /> chat app
-            </p>
-            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] mt-12">
-              BY AYUSH____
-            </p>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8">
+
+        <h1 className="text-2xl font-bold text-center mb-6 text-blue-700">
+          Create Account
+        </h1>
+
+        {error && (
+          <div className="mb-4 bg-red-100 text-red-700 p-2 rounded text-sm text-center">
+            {error}
           </div>
-        </div>
+        )}
 
-        {/* RIGHT SIDE (UNCHANGED UI) */}
-        <div className="w-full md:w-1/2 p-8 md:p-14 bg-white flex flex-col justify-center">
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-gray-950 mb-1 tracking-tight">Sign up</h2>
-            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-              Join the Guff family
-            </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Username */}
+          <div>
+            <label className="text-sm font-semibold">Username</label>
+            <div className="relative mt-1">
+              <User className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) =>
+                  setFormData({ ...formData, username: e.target.value })
+                }
+                className="w-full border rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-black"
+                placeholder="Enter username"
+                required
+              />
+            </div>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center">
-              {error}
+          {/* Email */}
+          <div>
+            <label className="text-sm font-semibold">Email</label>
+            <div className="relative mt-1">
+              <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                className="w-full border rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-black"
+                placeholder="Enter email"
+                required
+              />
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Password */}
+          <div>
+            <label className="text-sm font-semibold">Password</label>
+            <div className="relative mt-1">
+              <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
 
-            {/* Username */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">
-                Username
-              </label>
-              <div className="relative group">
-                <User className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  type="text"
-                  required
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
-                />
-              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                className="w-full border rounded-lg pl-10 pr-10 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-black"
+                placeholder="Enter password"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-gray-500"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+          </div>
 
-            {/* Email */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">
-                Email Address
-              </label>
-              <div className="relative group">
-                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
-                />
-              </div>
-            </div>
+          {/* Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : "Join Community"}
+          </button>
+        </form>
 
-            {/* Password */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-4">
-                Password
-              </label>
-              <div className="relative group">
-                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-14 pr-16 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem] flex items-center justify-center"
-            >
-              {isLoading ? <Loader2 className="animate-spin" /> : "Join Community"}
-            </button>
-          </form>
-
-          <p className="mt-8 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-            Already have an account?{" "}
-            <Link to="/login" className="text-[#0a46b3]">
-              Login
-            </Link>
-          </p>
-        </div>
+        <p className="text-sm text-center mt-4">
+          Already have an account?{" "}
+          <Link to="/login" className="text-blue-600 font-semibold">
+            Login
+          </Link>
+        </p>
       </div>
     </div>
   );
