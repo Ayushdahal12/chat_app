@@ -1,56 +1,69 @@
 const CACHE_NAME = "guff-v1";
 
+const STATIC_ASSETS = [
+  "/",
+  "/index.html",
+];
+
+// ✅ Install
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
+  );
   self.skipWaiting();
 });
 
+// ✅ Activate
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.map((key) => caches.delete(key)))
+      Promise.all(
+        keys.filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+      )
     )
   );
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  // ✅ Don't intercept ANYTHING except static assets
-  const url = new URL(event.request.url);
-
-  // Skip all non-GET requests
-  if (event.request.method !== "GET") return;
-
-  // Skip API calls
-  if (url.pathname.startsWith("/api/")) return;
-
-  // Skip external URLs
-  if (url.origin !== location.origin) return;
-
-  // Skip navigation requests (page loads)
-  if (event.request.mode === "navigate") return;
-
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    }).catch(() => fetch(event.request))
-  );
-});
-
-
-// ✅ Add this at the TOP of sw.js fetch event
+// ✅ Fetch — skip ALL non-GET and API routes
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // ✅ Skip these routes — let them go to network directly
+  // ✅ Skip these completely — go straight to network
   if (
-    url.pathname.startsWith("/call/") ||
+    event.request.method !== "GET" ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/socket.io/") ||
-    event.request.method !== "GET"
+    url.pathname.startsWith("/call/") ||
+    url.pathname.startsWith("/signup") ||
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/chat/") ||
+    url.hostname.includes("onrender.com") ||
+    url.hostname.includes("metered.ca") ||
+    url.hostname.includes("cloudinary.com") ||
+    url.hostname.includes("dicebear.com")
   ) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  // rest of your sw.js cache logic below...
+  // ✅ Cache first for static assets
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((response) => {
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clone);
+          });
+        }
+        return response;
+      });
+    }).catch(() => {
+      return caches.match("/index.html");
+    })
+  );
 });
