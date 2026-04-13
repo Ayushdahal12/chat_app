@@ -1,7 +1,7 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendOTPEmail } from "../utils/mailer.js";
+// import { sendOTPEmail } from "../utils/mailer.js";
 
 const generateToken = (userId, res) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -51,7 +51,7 @@ export const signup = async (req, res) => {
       isVerified: false,
     });
 
-    await sendOTPEmail(email, otp);
+    // await sendOTPEmail(email, otp);
 
     res.status(201).json({
       message: "OTP sent to your email!",
