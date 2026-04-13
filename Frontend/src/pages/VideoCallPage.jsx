@@ -52,7 +52,6 @@ const VideoCallPage = () => {
   const incomingSignalRef = useRef(incomingCall?.signal || null);
   const remoteUsernameSnap = useRef(incomingCall?.username || "");
 
-  // Outgoing Ringtone Logic
   useEffect(() => {
     if (!isAnswering && !callStarted) {
       const audio = new Audio(ringSound);
@@ -141,7 +140,29 @@ const VideoCallPage = () => {
       streamRef.current = stream;
       if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      // ✅ ONLY FIX — Added TURN servers
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+        ],
+        iceCandidatePoolSize: 10,
+      });
       pcRef.current = pc;
 
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
@@ -234,8 +255,8 @@ const VideoCallPage = () => {
       <div className="relative z-50 flex flex-col h-full pointer-events-none">
         <header className="p-8 flex justify-between pointer-events-auto">
           <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
-             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-             <span className="text-white text-[10px] font-black uppercase tracking-widest">{remoteUsername}</span>
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-white text-[10px] font-black uppercase tracking-widest">{remoteUsername}</span>
           </div>
           {callStarted && (
             <div className="bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 text-white font-mono text-sm">
