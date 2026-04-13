@@ -15,7 +15,6 @@ const SignupPage = () => {
     e.preventDefault();
     setError("");
 
-    // Password Validation: 8 chars, 1 letter, 1 number
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       setError("Password must be at least 8 characters and include 1 letter and 1 number");
@@ -23,14 +22,26 @@ const SignupPage = () => {
     }
 
     setIsLoading(true);
+
     try {
       const res = await axiosInstance.post("/auth/signup", formData);
+
+      // IMPORTANT: safe destructuring
+      const userId = res?.data?.userId;
+      const email = res?.data?.email;
+
+      if (!userId) {
+        setError("Signup failed. Please try again.");
+        return;
+      }
+
       navigate("/verify-otp", {
         state: {
-          userId: res.data.userId,
-          email: formData.email,
+          userId,
+          email,
         }
       });
+
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     } finally {
@@ -42,7 +53,7 @@ const SignupPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-[#0a46b3] p-4 font-sans overflow-hidden">
       <div className="relative w-full max-w-[950px] min-h-[600px] bg-white rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-white/20">
 
-        {/* LEFT SIDE: BRANDING */}
+        {/* LEFT SIDE */}
         <div className="hidden md:flex w-1/2 bg-gradient-to-br from-[#1e60ff] to-[#0a46b3] relative p-12 text-white flex-col justify-center items-center overflow-hidden">
           <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <div className="relative z-10 text-center">
@@ -58,7 +69,7 @@ const SignupPage = () => {
           </div>
         </div>
 
-        {/* RIGHT SIDE: FORM */}
+        {/* RIGHT SIDE */}
         <div className="w-full md:w-1/2 p-8 md:p-14 bg-white flex flex-col justify-center">
           <div className="mb-8">
             <h2 className="text-3xl font-black text-gray-950 mb-1 tracking-tight">Sign up</h2>
@@ -88,7 +99,7 @@ const SignupPage = () => {
                 <input
                   type="text"
                   required
-                  placeholder="Enter your username "
+                  placeholder="Enter your username"
                   className="w-full pl-14 pr-6 py-5 rounded-[1.8rem] bg-gray-50 border border-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all text-sm text-black"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
