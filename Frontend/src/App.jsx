@@ -19,13 +19,17 @@ function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const check = async () => {
-      await getMe();
-      setCheckingAuth(false); // 🔥 STOP LOADING AFTER FIRST CHECK
-    };
+  const token = document.cookie.includes("jwt");
 
-    check();
-  }, []);
+  const check = async () => {
+    if (token) {
+      await getMe();
+    }
+    setCheckingAuth(false);
+  };
+
+  check();
+}, []);
 
   if (checkingAuth) {
     return (

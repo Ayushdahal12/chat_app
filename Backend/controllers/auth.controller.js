@@ -38,7 +38,7 @@ export const signup = async (req, res) => {
     // Delete any unverified user with same email to allow retry
     await User.deleteOne({ email, isVerified: false });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+   const hashedPassword = await bcrypt.hash(password, 8);
     const otp = generateOTP();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
