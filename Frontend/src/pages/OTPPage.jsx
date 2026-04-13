@@ -1,24 +1,38 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../lib/axios";
-import { useAuthStore } from "../store/useAuthStore";
-import { useSocketStore } from "../store/useSocketStore";
-import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 
 const OTPPage = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(30);
+
   const inputRefs = useRef([]);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // ✅ FIX: sessionStorage fallback
-  const userId =
-    sessionStorage.getItem("otp_userId");
+  const userId = location.state?.userId;
+  const email = location.state?.email;
 
-  const email =
-    sessionStorage.getItem("otp_email");
+  // =========================
+  // AUTO OTP POPUP TIMER
+  // =========================
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      setShowPopup(false);
+      return;
+    }
 
+    const timer = setTimeout(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [timeLeft]);
+
+  // =========================
+  // OTP INPUT LOGIC
+  // =========================
   const handleChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
 
@@ -31,79 +45,83 @@ const OTPPage = () => {
     }
   };
 
+  // =========================
+  // VERIFY OTP
+  // =========================
   const handleSubmit = async () => {
-    const otpCode = otp.join("");
-
-    if (!userId) {
-      setError("Session expired. Please signup again.");
-      return;
-    }
-
-    if (otpCode.length !== 6) {
-      setError("Enter 6-digit code");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
+    const code = otp.join("");
 
     try {
-      const res = await axiosInstance.post("/auth/verify-otp", {
+      await axiosInstance.post("/auth/verify-otp", {
         userId,
-        otp: otpCode,
+        otp: code,
       });
 
-      useAuthStore.setState({ authUser: res.data });
-      useSocketStore.getState().connectSocket(res.data._id);
-
-      // ✅ cleanup
-      sessionStorage.removeItem("otp_userId");
-      sessionStorage.removeItem("otp_email");
-
       navigate("/onboarding");
+
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid OTP");
-    } finally {
-      setIsLoading(false);
+      alert(err.response?.data?.message || "Invalid OTP");
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a46b3] p-6">
-      <div className="text-center mb-8">
-        <h1 className="text-6xl font-black text-white">
-          verify गफ<span className="text-blue-300">.</span>
-        </h1>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-blue-600">
 
-      <div className="w-full max-w-[500px] bg-white rounded-[3rem] p-8">
-        <p className="text-center text-gray-500">
-          We sent code to {email || "your email"}
+      {/* ================= POPUP ================= */}
+      {showPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-2xl text-center w-80">
+
+            <h2 className="text-lg font-bold mb-2">Your OTP</h2>
+
+            <p className="text-3xl font-black text-blue-600 tracking-widest">
+              {otp.join("") || "------"}
+            </p>
+
+            <p className="text-sm mt-2 text-gray-500">
+              Auto hide in {timeLeft}s
+            </p>
+
+            <button
+              onClick={() => setShowPopup(false)}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-xl"
+            >
+              Close
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ================= OTP BOX ================= */}
+      <div className="bg-white p-8 rounded-2xl">
+
+        <h2 className="text-xl font-bold mb-4">Verify OTP</h2>
+
+        <p className="text-sm mb-4 text-gray-500">
+          Sent to {email}
         </p>
 
-        {error && (
-          <div className="text-red-500 text-center mt-4">{error}</div>
-        )}
-
-        <div className="flex justify-between mt-6">
+        <div className="flex gap-2 mb-4">
           {otp.map((digit, i) => (
             <input
               key={i}
               ref={(el) => (inputRefs.current[i] = el)}
+              maxLength={1}
               value={digit}
               onChange={(e) => handleChange(i, e.target.value)}
-              className="w-12 h-16 text-center border"
+              className="w-10 h-12 border text-center text-xl"
             />
           ))}
         </div>
 
         <button
           onClick={handleSubmit}
-          disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-4 mt-6"
+          className="w-full bg-blue-600 text-white p-2 rounded-xl"
         >
-          {isLoading ? <Loader2 className="animate-spin" /> : "Verify"}
+          Verify OTP
         </button>
+
       </div>
     </div>
   );

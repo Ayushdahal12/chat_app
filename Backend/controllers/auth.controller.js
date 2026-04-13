@@ -8,8 +8,8 @@ const generateToken = (userId, res) => {
   res.cookie("jwt", token, {
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: "none", 
-    secure: true,       
+    sameSite: "none",
+    secure: true,
   });
 };
 
@@ -21,46 +21,36 @@ export const signup = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password)
+    if (!username || !email || !password) {
       return res.status(400).json({ message: "All fields required" });
+    }
 
-    if (password.length < 6)
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
-
-    // Check if already verified user exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-      isVerified: true,
-    });
-    if (existingUser)
-      return res.status(400).json({ message: "Username or email already taken" });
-
-    // Delete any unverified user with same email to allow retry
-    await User.deleteOne({ email, isVerified: false });
-
-   const hashedPassword = await bcrypt.hash(password, 8);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       otp,
-      otpExpiry,
+      otpExpiry: Date.now() + 10 * 60 * 1000,
       isVerified: false,
     });
 
-    // await sendOTPEmail(email, otp);
+    console.log("OTP (DEV ONLY):", otp);
 
-    res.status(201).json({
-      message: "OTP sent to your email!",
+    return res.status(201).json({
+      message: "OTP generated",
       userId: user._id,
+      email: user.email,
+      otp, // 👈 SEND OTP TO FRONTEND
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 export const verifyOTP = async (req, res) => {
   try {

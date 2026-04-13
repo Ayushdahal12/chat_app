@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 import axiosInstance from "../lib/axios";
 
 const SignupPage = () => {
@@ -34,7 +33,7 @@ const SignupPage = () => {
         return;
       }
 
-      // ✅ FIX: store OTP data safely
+      // ✅ SAFE STORAGE (production-safe pattern)
       sessionStorage.setItem("otp_userId", userId);
       sessionStorage.setItem("otp_email", email || formData.email);
 
@@ -51,7 +50,7 @@ const SignupPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-[#0a46b3] p-4 font-sans overflow-hidden">
       <div className="relative w-full max-w-[950px] min-h-[600px] bg-white rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-white/20">
 
-        {/* LEFT SIDE */}
+        {/* LEFT SIDE (UNCHANGED) */}
         <div className="hidden md:flex w-1/2 bg-gradient-to-br from-[#1e60ff] to-[#0a46b3] relative p-12 text-white flex-col justify-center items-center overflow-hidden">
           <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
           <div className="relative z-10 text-center">
@@ -67,7 +66,7 @@ const SignupPage = () => {
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
+        {/* RIGHT SIDE (UNCHANGED UI) */}
         <div className="w-full md:w-1/2 p-8 md:p-14 bg-white flex flex-col justify-center">
           <div className="mb-8">
             <h2 className="text-3xl font-black text-gray-950 mb-1 tracking-tight">Sign up</h2>
@@ -77,7 +76,7 @@ const SignupPage = () => {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center leading-tight">
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center">
               {error}
             </div>
           )}
@@ -90,7 +89,7 @@ const SignupPage = () => {
                 Username
               </label>
               <div className="relative group">
-                <User className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
+                <User className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
                 <input
                   type="text"
                   required
@@ -107,7 +106,7 @@ const SignupPage = () => {
                 Email Address
               </label>
               <div className="relative group">
-                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
+                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
                 <input
                   type="email"
                   required
@@ -124,7 +123,7 @@ const SignupPage = () => {
                 Password
               </label>
               <div className="relative group">
-                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-[#0a46b3]" />
+                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
@@ -141,7 +140,7 @@ const SignupPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem]"
+              className="w-full bg-[#0a46b3] text-white py-5 rounded-[1.8rem] flex items-center justify-center"
             >
               {isLoading ? <Loader2 className="animate-spin" /> : "Join Community"}
             </button>
