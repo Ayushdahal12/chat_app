@@ -16,13 +16,14 @@ export const useSocketStore = create((set, get) => ({
     const socket = io(SOCKET_URL, {
       query: { userId },
       withCredentials: true,
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"], // ✅ polling first
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
-    // ✅ Debug logs
     socket.on("connect", () => {
       console.log("✅ Socket connected!", socket.id);
     });
@@ -33,16 +34,21 @@ export const useSocketStore = create((set, get) => ({
 
     socket.on("disconnect", (reason) => {
       console.log("⚠️ Socket disconnected:", reason);
+      // Reconnect with userId
+      if (reason === "transport close" || reason === "transport error") {
+        setTimeout(() => {
+          socket.connect();
+        }, 2000);
+      }
     });
 
-    // ✅ Online users
     socket.on("getOnlineUsers", (users) => {
       console.log("Online users:", users);
       set({ onlineUsers: users });
     });
 
-    // ✅ Video call events
     socket.on("receiveCall", ({ signal, from, username }) => {
+      console.log("📞 Incoming call from:", username);
       set({ incomingCall: { signal, from, username } });
     });
 
