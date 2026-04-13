@@ -18,13 +18,13 @@ import postRoutes from "./routes/post.route.js";
 
 const PORT = process.env.PORT || 10000;
 
-// ✅ CORS
 app.use(cors({
   origin: [
     "http://localhost:5173",
     "http://localhost:8080",
     "https://guff-app.vercel.app",
     "https://chat-app-green-pi.vercel.app",
+    "https://chat-app-sepia-sigma-68.vercel.app", // ✅ add this
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
