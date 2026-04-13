@@ -190,7 +190,10 @@ const VideoCallPage = () => {
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          socket.emit("iceCandidate", { to: remotePeerIdRef.current, candidate: event.candidate });
+          socket.emit("iceCandidate", {
+            to: remotePeerIdRef.current, // ← USER ID ✅
+            candidate: event.candidate
+          });
         }
       };
 
