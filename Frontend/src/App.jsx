@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
+
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
@@ -13,18 +14,29 @@ import OTPPage from "./pages/OTPPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import FeedPage from "./pages/FeedPage";
 
-
-
 function App() {
-  const { authUser, getMe } = useAuthStore();
+  const { authUser, getMe, isLoading } = useAuthStore();
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    getMe();
+    const check = async () => {
+      await getMe();
+      setCheckingAuth(false); // 🔥 STOP LOADING AFTER FIRST CHECK
+    };
+
+    check();
   }, []);
+
+  if (checkingAuth) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Global incoming call popup */}
       {authUser && <IncomingCallModal />}
 
       <Routes>
