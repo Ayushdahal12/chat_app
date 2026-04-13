@@ -20,6 +20,10 @@ const Icon = ({ path, className = "w-6 h-6", color = "currentColor" }) => (
   </svg>
 );
 
+// ✅ Your Metered API Key
+const METERED_API_KEY = "2f6dd2408e5bd09a1b55e685412564098b23";
+const METERED_URL = `https://guff-app.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
+
 const VideoCallPage = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -47,7 +51,9 @@ const VideoCallPage = () => {
 
   const iceCandidatesQueue = useRef([]);
   const remoteStreamRef = useRef(null);
-  const remotePeerIdRef = useRef(isAnswering ? (incomingCall?.from || id) : id);
+  const remotePeerIdRef = useRef(
+    isAnswering ? (incomingCall?.from || id) : id
+  );
   const incomingSignalRef = useRef(incomingCall?.signal || null);
   const remoteUsernameSnap = useRef(incomingCall?.username || "");
 
@@ -101,7 +107,9 @@ const VideoCallPage = () => {
         if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(answerSdp));
         for (const c of iceCandidatesQueue.current) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(c));
+          } catch (e) {}
         }
         iceCandidatesQueue.current = [];
         setCallStarted(true);
@@ -144,7 +152,13 @@ const VideoCallPage = () => {
 
   const startCall = async () => {
     try {
-      // ✅ Get user media with better audio settings
+      // ✅ STEP 1 — Fetch fresh TURN credentials from Metered
+      console.log("🔄 Fetching TURN credentials from Metered...");
+      const turnResponse = await fetch(METERED_URL);
+      const iceServers = await turnResponse.json();
+      console.log("✅ ICE Servers loaded:", iceServers);
+
+      // ✅ STEP 2 — Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -162,59 +176,33 @@ const VideoCallPage = () => {
       streamRef.current = stream;
       if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
-      // ✅ Log tracks to verify
       console.log("🎤 Audio tracks:", stream.getAudioTracks());
       console.log("🎥 Video tracks:", stream.getVideoTracks());
 
-      // ✅ Better ICE servers with TURN
+      // ✅ STEP 3 — Create peer connection with Metered TURN servers
       const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" },
-          {
-            urls: "turn:openrelay.metered.ca:80",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443?transport=tcp",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:80?transport=tcp",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-        ],
+        iceServers: iceServers, // ← from Metered API
         iceCandidatePoolSize: 10,
-        iceTransportPolicy: "all",
+        iceTransportPolicy: "all", // try direct first, fallback to TURN
         bundlePolicy: "max-bundle",
         rtcpMuxPolicy: "require",
       });
 
       pcRef.current = pc;
 
-      // ✅ Add all tracks to peer connection
+      // ✅ STEP 4 — Add all local tracks
       stream.getTracks().forEach((track) => {
         console.log("➕ Adding track:", track.kind);
         pc.addTrack(track, stream);
       });
 
-      // ✅ Handle remote tracks — audio and video separately
+      // ✅ STEP 5 — Handle remote tracks
       pc.ontrack = (event) => {
         console.log("🎥 Remote track received:", event.track.kind);
         const remoteStream = event.streams[0];
         remoteStreamRef.current = remoteStream;
 
+        // ✅ Audio
         if (event.track.kind === "audio") {
           if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = remoteStream;
@@ -225,6 +213,7 @@ const VideoCallPage = () => {
           }
         }
 
+        // ✅ Video
         if (event.track.kind === "video") {
           setRemoteVideoOn(true);
           if (remoteVideoRef.current) {
@@ -234,7 +223,7 @@ const VideoCallPage = () => {
         }
       };
 
-      // ✅ ICE candidate — use USER ID as "to"
+      // ✅ STEP 6 — Send ICE candidates to remote peer
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           console.log("🧊 Sending ICE candidate to:", remotePeerIdRef.current);
@@ -245,15 +234,16 @@ const VideoCallPage = () => {
         }
       };
 
-      // ✅ ICE connection state logging
+      // ✅ STEP 7 — Monitor connection state
       pc.oniceconnectionstatechange = () => {
         console.log("🧊 ICE state:", pc.iceConnectionState);
         if (pc.iceConnectionState === "connected") {
           setStatus("Connected");
           setCallStarted(true);
+          if (outgoingAudioRef.current) outgoingAudioRef.current.pause();
         }
         if (pc.iceConnectionState === "failed") {
-          console.log("❌ ICE failed — trying restart");
+          console.log("❌ ICE failed — restarting...");
           pc.restartIce();
         }
         if (pc.iceConnectionState === "disconnected") {
@@ -265,8 +255,9 @@ const VideoCallPage = () => {
         console.log("🔗 Connection state:", pc.connectionState);
       };
 
+      // ✅ STEP 8 — Caller or Answerer flow
       if (!isAnswering) {
-        // ✅ CALLER — create and send offer
+        // CALLER — create offer
         setStatus("Ringing...");
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -278,7 +269,7 @@ const VideoCallPage = () => {
           username: authUser.username,
         });
       } else {
-        // ✅ ANSWERER — set remote desc and send answer
+        // ANSWERER — create answer
         console.log("📲 Answering call from:", remotePeerIdRef.current);
         await pc.setRemoteDescription(
           new RTCSessionDescription(incomingSignalRef.current)
@@ -301,7 +292,10 @@ const VideoCallPage = () => {
   };
 
   const startTimer = () => {
-    timerRef.current = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
+    timerRef.current = setInterval(
+      () => setCallDuration((prev) => prev + 1),
+      1000
+    );
   };
 
   const formatTime = (s) => {
@@ -365,7 +359,10 @@ const VideoCallPage = () => {
             <div className="avatar mb-6">
               <div className="w-40 h-40 rounded-[3rem] ring-[12px] ring-white/5 border border-white/10 shadow-2xl">
                 <img
-                  src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`}
+                  src={
+                    remoteProfilePic ||
+                    `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`
+                  }
                   alt="user"
                 />
               </div>
@@ -431,7 +428,9 @@ const VideoCallPage = () => {
             {/* Audio toggle */}
             <button
               onClick={toggleAudio}
-              className={`p-5 rounded-3xl transition-all ${myAudioOn ? "bg-white/5" : "bg-red-500/20"}`}
+              className={`p-5 rounded-3xl transition-all ${
+                myAudioOn ? "bg-white/5" : "bg-red-500/20"
+              }`}
             >
               <Icon
                 color={myAudioOn ? "#fff" : "#ef4444"}
@@ -473,7 +472,9 @@ const VideoCallPage = () => {
             {/* Video toggle */}
             <button
               onClick={toggleVideo}
-              className={`p-5 rounded-3xl transition-all ${myVideoOn ? "bg-white/5" : "bg-red-500/20"}`}
+              className={`p-5 rounded-3xl transition-all ${
+                myVideoOn ? "bg-white/5" : "bg-red-500/20"
+              }`}
             >
               <Icon
                 color={myVideoOn ? "#fff" : "#ef4444"}
