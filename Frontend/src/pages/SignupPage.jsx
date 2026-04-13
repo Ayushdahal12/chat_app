@@ -18,11 +18,9 @@ const SignupPage = () => {
 
   const navigate = useNavigate();
 
-  // 🔥 Real Email Validation
   const isValidEmail = (email) =>
     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
 
-  // 🔥 Standard Password Validation (1 Uppercase, 1 Lowercase, 6+ chars)
   const isStandardPassword = (pass) => 
     /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/.test(pass);
 
@@ -72,28 +70,29 @@ const SignupPage = () => {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      padding: "1rem",
+      padding: "20px",
       background: "#083aa9", 
+      fontFamily: "Inter, system-ui, sans-serif"
     }}>
       <AnimatePresence>
         {!showExit && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ x: "-100vw", opacity: 0 }}
             style={{
               width: "100%",
-              maxWidth: "950px",
-              minHeight: "600px",
+              maxWidth: "880px", // Reduced from 1000px
+              minHeight: "540px", // Reduced from 640px
               backgroundColor: "#ffffff",
-              borderRadius: "3rem",
+              borderRadius: "3.5rem",
               display: "flex",
               flexDirection: "row",
               overflow: "hidden",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+              boxShadow: "0 30px 70px -15px rgba(0, 0, 0, 0.4)",
             }}
           >
-            {/* LEFT SIDE: BRANDING (NOW ON LEFT) */}
+            {/* LEFT SIDE: BRANDING */}
             <div style={{
               flex: 1,
               background: "linear-gradient(180deg, #2563eb 0%, #0a46b3 100%)",
@@ -102,46 +101,48 @@ const SignupPage = () => {
               justifyContent: "center",
               flexDirection: "column",
               color: "white",
-              padding: "40px",
+              padding: "30px",
               textAlign: "center"
             }}>
-              <h1 style={{ fontSize: "100px", fontWeight: "900", margin: 0, lineHeight: 1 }}>
+              <h1 style={{ fontSize: "90px", fontWeight: "900", margin: 0, lineHeight: 0.8, letterSpacing: "-4px" }}>
                 गफ<span style={{ color: "#60a5fa" }}>.</span>
               </h1>
-              <p style={{ fontSize: "18px", marginTop: "20px", fontWeight: "500", opacity: 0.9 }}>
+              <p style={{ fontSize: "16px", marginTop: "20px", fontWeight: "500", opacity: 0.9 }}>
                 Welcome back. <br />
                 Nepal's best chatting app.
               </p>
-              <p style={{ marginTop: "40px", fontSize: "12px", opacity: 0.6, letterSpacing: "2px" }}>
+              <p style={{ marginTop: "40px", fontSize: "11px", opacity: 0.5, letterSpacing: "2px", fontWeight: "700" }}>
                 BY AYUSH____
               </p>
             </div>
 
-            {/* RIGHT SIDE: FORM (NOW ON RIGHT) */}
+            {/* RIGHT SIDE: FORM */}
             <div style={{
-              flex: 1,
-              padding: "60px",
+              flex: 1.1,
+              padding: "40px 50px", // Reduced padding
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
               background: "#ffffff"
             }}>
-              <h2 style={{ fontSize: "32px", fontWeight: "900", color: "#111", marginBottom: "4px" }}>Sign up</h2>
-              <p style={{ fontSize: "12px", color: "#9ca3af", fontWeight: "600", letterSpacing: "1px", marginBottom: "30px" }}>CREATE YOUR ACCOUNT</p>
+              <h2 style={{ fontSize: "28px", fontWeight: "900", color: "#000", marginBottom: "2px" }}>Sign up</h2>
+              <p style={{ fontSize: "10px", color: "#9ca3af", fontWeight: "800", letterSpacing: "1.2px", marginBottom: "25px" }}>CONNECT TO YOUR ACCOUNT</p>
 
               {error && (
-                <p style={{ color: "#ef4444", fontSize: "13px", marginBottom: "15px", fontWeight: "600" }}>{error}</p>
+                <div style={{ background: "#fef2f2", padding: "10px", borderRadius: "10px", marginBottom: "15px" }}>
+                  <p style={{ color: "#ef4444", fontSize: "12px", fontWeight: "700", margin: 0 }}>{error}</p>
+                </div>
               )}
 
               <form onSubmit={handleSubmit}>
                 <label style={labelStyle}>USERNAME</label>
-                <Input icon={<User size={18} />} placeholder="your_name" 
+                <Input icon={<User size={16} />} placeholder="your_name" 
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 />
 
                 <label style={labelStyle}>EMAIL ADDRESS</label>
-                <Input icon={<Mail size={18} />} placeholder="name@email.com" 
+                <Input icon={<Mail size={16} />} placeholder="name@email.com" 
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -149,7 +150,7 @@ const SignupPage = () => {
                 <label style={labelStyle}>PASSWORD</label>
                 <div style={{ position: "relative" }}>
                   <Input 
-                    icon={<Lock size={18} />} 
+                    icon={<Lock size={16} />} 
                     placeholder="••••••••" 
                     type={showPassword ? "text" : "password"} 
                     value={formData.password}
@@ -160,23 +161,23 @@ const SignupPage = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     style={{
                       position: "absolute",
-                      right: "15px",
+                      right: "18px",
                       top: "50%",
                       transform: "translateY(-50%)",
                       background: "none",
                       border: "none",
                       color: "#0a46b3",
-                      fontSize: "11px",
-                      fontWeight: "800",
+                      fontSize: "10px",
+                      fontWeight: "900",
                       cursor: "pointer"
                     }}
                   >
-                    {showPassword ? <EyeOff size={18} /> : "SHOW"}
+                    {showPassword ? <EyeOff size={16} /> : "SHOW"}
                   </button>
                 </div>
 
                 <button type="submit" disabled={loading} style={buttonStyle}>
-                  {loading ? <Loader2 className="animate-spin mx-auto" /> : (
+                  {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : (
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                       START CHATTING <ArrowRight size={18} />
                     </span>
@@ -184,12 +185,21 @@ const SignupPage = () => {
                 </button>
               </form>
 
-              <p style={{ marginTop: "30px", fontSize: "13px", textAlign: "center", fontWeight: "700", color: "#666" }}>
-                Already have an account?{" "}
-                <Link to="/login" style={{ color: "#0a46b3", textDecoration: "none", fontWeight: "900" }}>
+              <div style={{ marginTop: "25px", textAlign: "center" }}>
+                <span style={{ fontSize: "11px", fontWeight: "800", color: "#9ca3af" }}>
+                  ALREADY HAVE AN ACCOUNT?{" "}
+                </span>
+                <Link to="/login" style={{ 
+                  color: "#0a46b3", 
+                  textDecoration: "none", 
+                  fontWeight: "900", 
+                  fontSize: "11px",
+                  marginLeft: "4px",
+                  borderBottom: "2px solid #0a46b3"
+                }}>
                    LOGIN
                 </Link>
-              </p>
+              </div>
             </div>
           </motion.div>
         )}
@@ -198,45 +208,45 @@ const SignupPage = () => {
   );
 };
 
-// Styles
 const labelStyle = {
   display: "block",
-  fontSize: "11px",
-  fontWeight: "800",
+  fontSize: "9px",
+  fontWeight: "900",
   color: "#9ca3af",
   marginBottom: "8px",
-  marginTop: "15px"
+  marginTop: "15px",
+  letterSpacing: "0.5px"
 };
 
 const buttonStyle = {
   width: "100%",
-  padding: "18px",
+  padding: "16px",
   background: "#0a46b3",
   color: "white",
   borderRadius: "100px",
-  fontWeight: "800",
-  marginTop: "30px",
+  fontWeight: "900",
+  marginTop: "25px",
   border: "none",
   cursor: "pointer",
-  boxShadow: "0 10px 20px -5px rgba(10, 70, 179, 0.4)",
-  fontSize: "14px"
+  boxShadow: "0 12px 24px -8px rgba(10, 70, 179, 0.4)",
+  fontSize: "13px"
 };
 
 const Input = ({ icon, ...props }) => (
   <div style={{ position: "relative" }}>
-    <div style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#d1d5db" }}>
+    <div style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "#d1d5db" }}>
       {icon}
     </div>
     <input
       {...props}
       style={{
         width: "100%",
-        padding: "16px 16px 16px 45px",
-        borderRadius: "18px",
+        padding: "14px 18px 14px 48px",
+        borderRadius: "16px",
         border: "1px solid #f3f4f6",
         background: "#f9fafb",
         outline: "none",
-        fontSize: "15px",
+        fontSize: "14px",
         color: "#000"
       }}
     />

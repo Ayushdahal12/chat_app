@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "../lib/axios";
+import { useAuthStore } from "../store/useAuthStore"; // Ensure this path is correct
+import axiosInstance from "../lib/axios";
 import { Check, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 
-const interests = [
+const interestsList = [
   "Technology", "Music", "Gaming", "Travel", "Food",
   "Sports", "Art", "Fashion", "Business", "Management",
   "Movies", "Books", "Fitness", "Photography", "Science",
@@ -13,7 +15,9 @@ const OnboardingPage = () => {
   const [selected, setSelected] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  
   const navigate = useNavigate();
+  const { getMe } = useAuthStore(); // 🔥 This is the key to fixing the redirect!
 
   const toggleInterest = (interest) => {
     setError("");
@@ -29,111 +33,142 @@ const OnboardingPage = () => {
       setError("Pick at least 3 to continue!");
       return;
     }
+
     setIsLoading(true);
     try {
-      await axios.put("/users/update-interests", { interests: selected });
+      // 1. Update backend
+      await axiosInstance.put("/users/update-interests", { interests: selected });
+      
+      // 2. Refresh the local authUser state so App.jsx knows onboarding is done
+      await getMe(); 
+      
+      // 3. Move to home
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.message || "Something went wrong");
+      console.error("Onboarding error:", err);
+      setError(err.response?.data?.message || "Something went wrong saving your vibes.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a46b3] p-6 font-sans select-none overflow-hidden">
-      
-      {/* BRANDING TOP */}
-      <div className="text-center mb-8">
-        <h1 className="text-6xl md:text-7xl font-black text-white tracking-tighter leading-none">
-          गफ<span className="text-blue-300">.</span>
+    <div style={containerStyle}>
+      {/* BRANDING */}
+      <motion.div 
+        initial={{ y: -20, opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }}
+        style={{ textAlign: "center", marginBottom: "30px" }}
+      >
+        <h1 style={{ fontSize: "70px", fontWeight: "900", color: "white", margin: 0, letterSpacing: "-3px" }}>
+          गफ<span style={{ color: "#60a5fa" }}>.</span>
         </h1>
-      </div>
+      </motion.div>
 
       {/* MAIN CARD */}
-      <div className="w-full max-w-[750px] bg-white rounded-[3.5rem] shadow-2xl p-8 md:p-14 border border-white/20">
-        
-        <header className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 mb-4">
-            <Sparkles size={14} className="text-[#0a46b3]" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0a46b3]">Personalize</span>
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        style={cardStyle}
+      >
+        <header style={{ textAlign: "center", marginBottom: "30px" }}>
+          <div style={badgeStyle}>
+            <Sparkles size={12} />
+            <span>PERSONALIZE</span>
           </div>
-          <h2 className="text-4xl font-black text-gray-950 tracking-tight mb-2">What's your vibe?</h2>
-          <p className="text-gray-400 text-sm font-medium">
-            Select at least <span className="text-[#0a46b3] font-bold">3 interests</span> to customize your feed.
+          <h2 style={{ fontSize: "30px", fontWeight: "900", color: "#0f172a", marginBottom: "8px" }}>What's your vibe?</h2>
+          <p style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>
+            Select <span style={{ color: "#0a46b3", fontWeight: "800" }}>3 or more</span> to customize your feed.
           </p>
         </header>
 
         {error && (
-          <div className="mb-8 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase text-center animate-bounce">
+          <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} style={errorStyle}>
             {error}
-          </div>
+          </motion.div>
         )}
 
-        {/* INTERESTS CHIPS */}
-        <div className="flex flex-wrap gap-3 justify-center mb-12">
-          {interests.map((interest) => {
+        {/* INTERESTS GRID */}
+        <div style={chipsContainer}>
+          {interestsList.map((interest) => {
             const isSelected = selected.includes(interest);
             return (
               <button
                 key={interest}
                 onClick={() => toggleInterest(interest)}
-                className={`
-                  px-6 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 border-2
-                  ${isSelected 
-                    ? "bg-[#0a46b3] border-[#0a46b3] text-white shadow-xl shadow-blue-500/20 scale-105" 
-                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-blue-200 hover:text-gray-600"
-                  }
-                `}
+                style={{
+                  ...chipStyle,
+                  background: isSelected ? "#0a46b3" : "#f8fafc",
+                  borderColor: isSelected ? "#0a46b3" : "#e2e8f0",
+                  color: isSelected ? "white" : "#64748b",
+                  transform: isSelected ? "scale(1.05)" : "scale(1)"
+                }}
               >
-                <div className="flex items-center gap-2">
-                  {isSelected && <Check size={16} strokeWidth={4} className="animate-in zoom-in" />}
-                  {interest}
-                </div>
+                {isSelected && <Check size={14} strokeWidth={4} style={{ marginRight: "6px" }} />}
+                {interest}
               </button>
             );
           })}
         </div>
 
-        {/* PROGRESS & SUBMIT */}
-        <div className="flex flex-col items-center gap-6 pt-8 border-t border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1.5">
+        {/* BOTTOM SECTION */}
+        <div style={footerSection}>
+          <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "25px" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
               {[1, 2, 3].map((s) => (
                 <div 
                   key={s} 
-                  className={`h-2 w-8 rounded-full transition-all duration-500 ${selected.length >= s ? "bg-[#0a46b3]" : "bg-gray-100"}`} 
+                  style={{
+                    height: "6px",
+                    width: "35px",
+                    borderRadius: "10px",
+                    background: selected.length >= s ? "#0a46b3" : "#e2e8f0",
+                    transition: "all 0.3s ease"
+                  }} 
                 />
               ))}
             </div>
-            <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
-              {selected.length}/3 Required
+            <span style={{ fontSize: "10px", fontWeight: "900", color: "#94a3b8", letterSpacing: "1px" }}>
+              {selected.length}/3 REQUIRED
             </span>
           </div>
 
           <button
             onClick={handleSubmit}
             disabled={isLoading || selected.length < 3}
-            className="w-full md:w-80 bg-[#0a46b3] text-white py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-20 flex items-center justify-center gap-3"
+            style={{
+              ...submitBtnStyle,
+              opacity: (selected.length < 3) ? 0.4 : 1,
+              cursor: (selected.length < 3) ? "not-allowed" : "pointer"
+            }}
           >
             {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 size={20} className="animate-spin" />
             ) : (
-              <>
-                <span>Start Guffing</span>
-                <ArrowRight size={18} strokeWidth={3} />
-              </>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span>START GUFFING</span>
+                <ArrowRight size={18} />
+              </div>
             )}
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* FOOTER */}
-      <p className="mt-8 text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">
-        By Ayush____ • 2026
+      <p style={{ marginTop: "25px", fontSize: "10px", fontWeight: "800", color: "rgba(255,255,255,0.4)", letterSpacing: "2px" }}>
+        BY AYUSH____ • 2026
       </p>
     </div>
   );
 };
+
+// --- STYLES (Same as previous for consistency) ---
+const containerStyle = { minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0a46b3", padding: "40px 20px", fontFamily: "Inter, sans-serif" };
+const cardStyle = { width: "100%", maxWidth: "750px", background: "#ffffff", borderRadius: "3.5rem", padding: "50px", boxShadow: "0 40px 100px rgba(0, 0, 0, 0.4)" };
+const badgeStyle = { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 14px", borderRadius: "100px", background: "#eff6ff", color: "#0a46b3", fontSize: "10px", fontWeight: "900", marginBottom: "15px", border: "1px solid #dbeafe" };
+const chipsContainer = { display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "center", marginBottom: "40px" };
+const chipStyle = { padding: "12px 20px", borderRadius: "16px", fontSize: "14px", fontWeight: "700", border: "2px solid", cursor: "pointer", transition: "all 0.2s ease", display: "flex", alignItems: "center" };
+const errorStyle = { background: "#fef2f2", padding: "12px", borderRadius: "15px", color: "#ef4444", fontSize: "11px", fontWeight: "800", textAlign: "center", marginBottom: "25px", border: "1px solid #fee2e2" };
+const footerSection = { display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "30px", borderTop: "1px solid #f1f5f9" };
+const submitBtnStyle = { width: "100%", maxWidth: "300px", padding: "18px", background: "#0a46b3", color: "white", borderRadius: "100px", border: "none", fontWeight: "900", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 15px 30px rgba(10, 70, 179, 0.4)", transition: "all 0.2s" };
 
 export default OnboardingPage;
