@@ -19,10 +19,11 @@ import postRoutes from "./routes/post.route.js";
 const PORT = process.env.PORT || 10000;
 
 app.use(cors({
-  origin: true,
+  origin: [
+    "http://localhost:5173",
+    "https://guff.ayushdahal.info.np"
+  ],
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 }));
 
 // ✅ Handle preflight
