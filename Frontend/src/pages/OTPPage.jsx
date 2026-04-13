@@ -16,7 +16,7 @@ const OTPPage = () => {
   const email = location.state?.email;
 
   // =========================
-  // GET OTP FROM SESSION STORAGE
+  // LOAD OTP FROM STORAGE + POPUP TIMER
   // =========================
   useEffect(() => {
     const otpFromStorage = sessionStorage.getItem("otp_code");
@@ -39,14 +39,14 @@ const OTPPage = () => {
     if (timeLeft <= 0) return;
 
     const timer = setTimeout(() => {
-      setTimeLeft(timeLeft - 1);
+      setTimeLeft((prev) => prev - 1);
     }, 1000);
 
     return () => clearTimeout(timer);
   }, [timeLeft]);
 
   // =========================
-  // INPUT CHANGE
+  // INPUT HANDLER
   // =========================
   const handleChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -67,7 +67,7 @@ const OTPPage = () => {
     const code = otp.join("");
 
     if (code.length !== 6) {
-      alert("Enter 6 digit OTP");
+      alert("Please enter 6-digit OTP");
       return;
     }
 
@@ -76,6 +76,9 @@ const OTPPage = () => {
         userId,
         otp: code,
       });
+
+      // clear OTP after success
+      sessionStorage.removeItem("otp_code");
 
       navigate("/onboarding");
     } catch (err) {
@@ -86,7 +89,7 @@ const OTPPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-600">
 
-      {/* ================= OTP POPUP ================= */}
+      {/* ================= POPUP ================= */}
       {showPopup && serverOtp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-2xl text-center w-80 shadow-xl">
@@ -114,16 +117,16 @@ const OTPPage = () => {
         </div>
       )}
 
-      {/* ================= OTP INPUT ================= */}
-      <div className="bg-white p-8 rounded-2xl">
+      {/* ================= OTP BOX ================= */}
+      <div className="bg-white p-8 rounded-2xl shadow-lg">
 
-        <h2 className="text-xl font-bold mb-4">Verify OTP</h2>
+        <h2 className="text-xl font-bold mb-2">Verify OTP</h2>
 
         <p className="text-sm mb-4 text-gray-500">
-          Sent to {email}
+          Sent to <span className="font-semibold">{email}</span>
         </p>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-5 justify-center">
           {otp.map((digit, i) => (
             <input
               key={i}
@@ -131,14 +134,14 @@ const OTPPage = () => {
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(i, e.target.value)}
-              className="w-10 h-12 border text-center text-xl"
+              className="w-10 h-12 border rounded text-center text-xl font-bold"
             />
           ))}
         </div>
 
         <button
           onClick={handleSubmit}
-          className="w-full bg-blue-600 text-white p-2 rounded-xl"
+          className="w-full bg-blue-600 text-white p-2 rounded-xl font-semibold"
         >
           Verify OTP
         </button>
