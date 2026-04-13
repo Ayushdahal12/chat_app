@@ -6,14 +6,14 @@ import axiosInstance from "../lib/axios";
 import ringSound from "../assets/Ring.mp3";
 
 const Icon = ({ path, className = "w-6 h-6", color = "currentColor" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke={color} 
-    strokeWidth="2.5" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
     {path}
@@ -57,7 +57,7 @@ const VideoCallPage = () => {
       const audio = new Audio(ringSound);
       audio.loop = true;
       outgoingAudioRef.current = audio;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
     if (callStarted && outgoingAudioRef.current) {
       outgoingAudioRef.current.pause();
@@ -95,7 +95,7 @@ const VideoCallPage = () => {
         if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(answerSdp));
         for (const c of iceCandidatesQueue.current) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { }
         }
         iceCandidatesQueue.current = [];
         setCallStarted(true);
@@ -112,7 +112,7 @@ const VideoCallPage = () => {
         } else {
           iceCandidatesQueue.current.push(candidate);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
     const onCallEnded = () => { cleanup(); navigate(`/chat/${id}`); };
@@ -168,9 +168,24 @@ const VideoCallPage = () => {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        remoteStreamRef.current = event.streams[0];
-        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = event.streams[0];
-        if (event.track.kind === "video") setRemoteVideoOn(true);
+        console.log("🎥 Remote track received:", event.track.kind);
+        const remoteStream = event.streams[0];
+        remoteStreamRef.current = remoteStream;
+
+        // ✅ Always set audio
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = remoteStream;
+          remoteAudioRef.current.play().catch(() => { });
+        }
+
+        // ✅ Set video directly
+        if (event.track.kind === "video") {
+          setRemoteVideoOn(true);
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.play().catch(() => { });
+          }
+        }
       };
 
       pc.onicecandidate = (event) => {
@@ -272,7 +287,7 @@ const VideoCallPage = () => {
               <video ref={myVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Icon color="#ffffff" className="w-10 h-10 opacity-20" path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />
+                <Icon color="#ffffff" className="w-10 h-10 opacity-20" path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>} />
               </div>
             )}
           </div>
@@ -282,15 +297,15 @@ const VideoCallPage = () => {
         <footer className="mt-auto pb-12 flex justify-center pointer-events-auto">
           <div className="flex items-center gap-6 bg-black/60 backdrop-blur-3xl p-6 rounded-[3.5rem] border border-white/10 shadow-2xl">
             <button onClick={toggleAudio} className={`p-5 rounded-3xl transition-all ${myAudioOn ? 'bg-white/5' : 'bg-red-500/20'}`}>
-              <Icon color={myAudioOn ? "#fff" : "#ef4444"} path={myAudioOn ? <><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></> : <><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 11v-1"/><path d="M5 10v1a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></>} />
+              <Icon color={myAudioOn ? "#fff" : "#ef4444"} path={myAudioOn ? <><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v1a7 7 0 0 1-14 0v-1" /><line x1="12" x2="12" y1="19" y2="22" /></> : <><line x1="2" x2="22" y1="2" y2="22" /><path d="M18.89 13.23A7.12 7.12 0 0 0 19 11v-1" /><path d="M5 10v1a7 7 0 0 0 12 5" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /><line x1="12" x2="12" y1="19" y2="22" /></>} />
             </button>
 
             <button onClick={endCall} className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all">
-              <Icon color="#fff" className="w-10 h-10 rotate-[135deg]" path={<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6.13-6.13 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/>} />
+              <Icon color="#fff" className="w-10 h-10 rotate-[135deg]" path={<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6.13-6.13 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />} />
             </button>
 
             <button onClick={toggleVideo} className={`p-5 rounded-3xl transition-all ${myVideoOn ? 'bg-white/5' : 'bg-red-500/20'}`}>
-              <Icon color={myVideoOn ? "#fff" : "#ef4444"} path={myVideoOn ? <><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></> : <><line x1="2" x2="22" y1="2" y2="22"/><path d="M7 11V7c0-.55.45-1 1-1h4"/><path d="M14 6h1c.55 0 1 .45 1 1v2.34"/><path d="m22 8-3.5 2.33"/><path d="M2 10v6c0 1.1.9 2 2 2h12c.5 0 .93-.18 1.25-.48"/><path d="m22 16-1.5-1"/></>} />
+              <Icon color={myVideoOn ? "#fff" : "#ef4444"} path={myVideoOn ? <><path d="m22 8-6 4 6 4V8Z" /><rect width="14" height="12" x="2" y="6" rx="2" ry="2" /></> : <><line x1="2" x2="22" y1="2" y2="22" /><path d="M7 11V7c0-.55.45-1 1-1h4" /><path d="M14 6h1c.55 0 1 .45 1 1v2.34" /><path d="m22 8-3.5 2.33" /><path d="M2 10v6c0 1.1.9 2 2 2h12c.5 0 .93-.18 1.25-.48" /><path d="m22 16-1.5-1" /></>} />
             </button>
           </div>
         </footer>
