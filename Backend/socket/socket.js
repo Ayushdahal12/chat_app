@@ -7,18 +7,13 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:8080",
-      "https://guff-app.vercel.app",
-      "https://chat-app-green-pi.vercel.app",
-    ],
+    origin: true,
     credentials: true,
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
-  pingTimeout: 60000,      // ✅ Keep connection alive
-  pingInterval: 25000,     // ✅ Ping every 25 seconds
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // ✅ Store online users
