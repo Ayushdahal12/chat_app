@@ -115,7 +115,6 @@ const VideoCallPage = () => {
           }
         };
 
-
         pc.onicecandidate = (e) => {
           if (e.candidate) socket.emit("iceCandidate", { to: isAnswering ? incomingCall.from : id, candidate: e.candidate });
         };
@@ -207,15 +206,8 @@ const VideoCallPage = () => {
         <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-white text-xs font-bold pointer-events-auto">
           {remoteUsername}
         </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white font-mono pointer-events-auto">
-            {formatTime(callDuration)}
-          </div>
-        {/* Call Duration Timer (top center, always visible) */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
-          <div className="bg-black/60 px-6 py-2 rounded-full border border-green-400/30 text-green-300 font-mono text-lg font-bold tracking-widest shadow-lg">
-            {String(Math.floor(callDuration / 60)).padStart(2, '0')}:{String(callDuration % 60).padStart(2, '0')}
-          </div>
-          <span className="text-xs text-white/60 mt-1">Call Duration</span>
+        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white font-mono pointer-events-auto">
+          {formatTime(callDuration)}
         </div>
       </div>
 
