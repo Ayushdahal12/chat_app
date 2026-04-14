@@ -47,6 +47,8 @@ const VideoCallPage = () => {
   const streamRef = useRef(null);
   const pcRef = useRef(null);
   const durationRef = useRef(0);
+  // Dedicated remote stream for correct video rendering
+  const remoteStream = useRef(null);
 
   // ✅ Guard — no id provided
   if (!id) {
@@ -67,6 +69,8 @@ const VideoCallPage = () => {
         if (user) {
           setRemoteUsername(user.username || "");
           setRemoteProfilePic(user.profilePic || "");
+          remoteStream.current = new window.MediaStream();
+          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream.current;
         }
       } catch (e) {
         console.error("Error fetching user:", e);
