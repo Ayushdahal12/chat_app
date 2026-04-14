@@ -3,11 +3,6 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useSocketStore } from "../store/useSocketStore";
 import { useAuthStore } from "../store/useAuthStore";
 import axiosInstance from "../lib/axios";
-import ringSound from "../assets/Ring.mp3";
-
-const Icon = ({ path, className = "w-6 h-6", color = "currentColor" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>
-);
 
 const METERED_API_KEY = "2f6dd2408e5bd09a1b55e685412564098b23";
 const METERED_URL = `https://guff-app.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
@@ -22,54 +17,27 @@ const VideoCallPage = () => {
   const { authUser } = useAuthStore();
 
   const [callDuration, setCallDuration] = useState(0);
-  const [callStarted, setCallStarted] = useState(false);
-  const [remoteUsername, setRemoteUsername] = useState("");
-  const [remoteProfilePic, setRemoteProfilePic] = useState("");
   const [status, setStatus] = useState("Connecting...");
-  const [myVideoOn, setMyVideoOn] = useState(true);
-  const [myAudioOn, setMyAudioOn] = useState(true);
   const [remoteVideoOn, setRemoteVideoOn] = useState(false);
+  const [myVideoOn, setMyVideoOn] = useState(true);
 
   const myVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const remoteAudioRef = useRef(null);
   const streamRef = useRef(null);
   const pcRef = useRef(null);
-  const durationRef = useRef(0);
-  const iceCandidatesQueue = useRef([]);
+  const timerRef = useRef(null);
 
-  // ✅ FIX: correct remote stream handling
+  // ✅ IMPORTANT FIX
   const remoteStreamRef = useRef(new MediaStream());
 
+  // TIMER
   useEffect(() => {
-    durationRef.current = callDuration;
-  }, [callDuration]);
-
-  useEffect(() => {
-    let interval;
-    if (remoteVideoOn) {
-      setCallStarted(true);
-      setStatus("Connected");
-      interval = setInterval(() => {
-        setCallDuration(prev => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+    if (!remoteVideoOn) return;
+    timerRef.current = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timerRef.current);
   }, [remoteVideoOn]);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await axiosInstance.get("/users/suggested");
-        const user = res.data.find(u => u._id === id);
-        if (user) {
-          setRemoteUsername(user.username);
-          setRemoteProfilePic(user.profilePic);
-        }
-      } catch (e) {}
-    };
-    fetchUser();
-  }, [id]);
 
   useEffect(() => {
     if (!socket) return;
@@ -85,25 +53,43 @@ const VideoCallPage = () => {
         });
 
         streamRef.current = stream;
-        if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+        if (myVideoRef.current) {
+          myVideoRef.current.srcObject = stream;
+        }
 
-        const pc = new RTCPeerConnection({ iceServers });
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            ...iceServers,
+          ],
+        });
+
         pcRef.current = pc;
 
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        // add tracks
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
 
-        // ✅ FIXED ontrack (PC + Mobile working)
+        // ✅ FINAL FIXED TRACK HANDLER
         pc.ontrack = (event) => {
-          console.log("🎥 Track received:", event.track.kind);
+          const track = event.track;
 
-          remoteStreamRef.current.addTrack(event.track);
+          const exists = remoteStreamRef.current
+            .getTracks()
+            .find((t) => t.id === track.id);
+
+          if (!exists) {
+            remoteStreamRef.current.addTrack(track);
+          }
 
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
           }
 
-          if (event.track.kind === "video") {
+          if (track.kind === "video") {
             setRemoteVideoOn(true);
+            setStatus("Connected");
           }
         };
 
@@ -116,16 +102,16 @@ const VideoCallPage = () => {
           }
         };
 
+        // CALL LOGIC
         if (!isAnswering) {
-          setStatus("Ringing...");
+          setStatus("Calling...");
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
 
           socket.emit("callUser", {
             to: id,
-            signal: pc.localDescription,
+            signal: offer,
             from: authUser._id,
-            username: authUser.username,
           });
         } else {
           await pc.setRemoteDescription(
@@ -137,13 +123,13 @@ const VideoCallPage = () => {
 
           socket.emit("answerCall", {
             to: incomingCall.from,
-            signal: pc.localDescription,
+            signal: answer,
           });
 
           clearIncomingCall();
         }
       } catch (err) {
-        setStatus("Media Error");
+        setStatus("Camera/Mic Error");
       }
     };
 
@@ -151,45 +137,36 @@ const VideoCallPage = () => {
       await pcRef.current?.setRemoteDescription(
         new RTCSessionDescription(sdp)
       );
-
-      iceCandidatesQueue.current.forEach(c =>
-        pcRef.current.addIceCandidate(new RTCIceCandidate(c))
-      );
-      iceCandidatesQueue.current = [];
     });
 
     socket.on("iceCandidate", async ({ candidate }) => {
-      if (pcRef.current?.remoteDescription) {
-        await pcRef.current.addIceCandidate(
+      if (candidate) {
+        await pcRef.current?.addIceCandidate(
           new RTCIceCandidate(candidate)
         );
-      } else {
-        iceCandidatesQueue.current.push(candidate);
       }
     });
 
-    socket.on("callEnded", () => handleExit());
+    socket.on("callEnded", () => endCall());
 
     init();
 
     return () => {
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       pcRef.current?.close();
+      clearInterval(timerRef.current);
     };
   }, [socket]);
 
-  const handleExit = async () => {
-    const finalTime = durationRef.current;
-
+  const endCall = async () => {
     try {
       await axiosInstance.post(`/messages/send/${id}`, {
         text: "Video Call",
-        type: finalTime > 0 ? "call_ended" : "call_missed",
-        callDuration: finalTime,
+        type: "call_ended",
+        callDuration,
       });
-    } finally {
-      navigate(`/chat/${id}`);
-    }
+    } catch (e) {}
+    navigate(`/chat/${id}`);
   };
 
   const toggleVideo = () => {
@@ -201,60 +178,56 @@ const VideoCallPage = () => {
   };
 
   const formatTime = (s) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+    const m = String(Math.floor(s / 60)).padStart(2, "0");
+    const sec = String(s % 60).padStart(2, "0");
+    return `${m}:${sec}`;
   };
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col w-full h-[100dvh]">
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+    <div className="fixed inset-0 bg-black">
 
-      {/* ✅ FIXED VIDEO TAG */}
+      {/* REMOTE VIDEO */}
       <div className="absolute inset-0">
         {remoteVideoOn ? (
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            onLoadedMetadata={() => {
-              remoteVideoRef.current?.play().catch(() => {});
-            }}
+            onLoadedMetadata={() =>
+              remoteVideoRef.current?.play().catch(() => {})
+            }
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
-            <img
-              src={
-                remoteProfilePic ||
-                `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`
-              }
-              className="w-32 h-32 rounded-full mb-4"
-              alt=""
-            />
-            <h2 className="text-white text-xl font-bold">
-              {remoteUsername}
-            </h2>
-            <p className="text-blue-400 animate-pulse">{status}</p>
+          <div className="flex items-center justify-center h-full text-white">
+            {status}
           </div>
         )}
       </div>
 
-      <div className="absolute top-24 right-6 z-20">
+      {/* MY VIDEO (PIP) */}
+      <div className="absolute top-6 right-6 w-32 h-44 rounded-xl overflow-hidden border border-white/20">
         <video
           ref={myVideoRef}
           autoPlay
           playsInline
           muted
-          className="w-28 h-40 object-cover"
+          className="w-full h-full object-cover scale-x-[-1]"
         />
       </div>
 
-      <div className="mt-auto flex justify-center gap-8 pb-12">
-        <button onClick={toggleVideo} className="p-5 bg-white/10 rounded-full">
-          📹
+      {/* TOP BAR */}
+      <div className="absolute top-6 left-6 text-white font-mono text-lg">
+        {formatTime(callDuration)}
+      </div>
+
+      {/* CONTROLS */}
+      <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-6">
+        <button
+          onClick={toggleVideo}
+          className="bg-white/20 px-6 py-3 rounded-full text-white"
+        >
+          {myVideoOn ? "Camera On" : "Camera Off"}
         </button>
 
         <button
@@ -262,11 +235,11 @@ const VideoCallPage = () => {
             socket.emit("endCall", {
               to: isAnswering ? incomingCall.from : id,
             });
-            handleExit();
+            endCall();
           }}
-          className="p-6 bg-red-600 rounded-full"
+          className="bg-red-600 px-6 py-3 rounded-full text-white"
         >
-          📵
+          End Call
         </button>
       </div>
     </div>
