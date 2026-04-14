@@ -1218,7 +1218,7 @@ const FeedPage = () => {
               </button>
             </div>
           ) : (
-            posts.map((post, idx) => {
+            posts.filter(post => post.userId != null).map((post, idx) => {
               // ✅ Safe null checks
               const isLiked = authUser ? post.likes.includes(authUser._id) : false;
               const isMyPost = authUser ? post.userId?._id === authUser._id : false;
