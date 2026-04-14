@@ -5,22 +5,7 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useAuthStore } from "../store/useAuthStore";
 import axiosInstance from "../lib/axios";
 
-const Icon = ({ path, className = "w-6 h-6", color = "currentColor" }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    {path}
-  </svg>
-);
-
-const METERED_API_KEY = "YOUR_API_KEY";
+const METERED_API_KEY = "2f6dd2408e5bd09a1b55e685412564098b23";
 const METERED_URL = `https://guff-app.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
 
 const VideoCallPage = () => {
@@ -49,9 +34,7 @@ const VideoCallPage = () => {
   const durationRef = useRef(0);
   const remoteStream = useRef(new MediaStream());
 
-  if (!id) {
-    return <div className="text-red-500 p-8">Invalid call</div>;
-  }
+  if (!id) return <div className="text-red-500 p-8">Invalid Call</div>;
 
   const handleExit = async () => {
     const finalTime = durationRef.current;
@@ -72,35 +55,34 @@ const VideoCallPage = () => {
   useEffect(() => {
     if (!socket) return;
 
-    // ✅ FIXED: properly closed function
+    // 🔹 Fetch User Info
     const fetchUser = async () => {
       try {
         const res = await axiosInstance.get("/users/suggested");
         if (!Array.isArray(res.data)) return;
 
-        const user = res.data.find((u) => u && u._id === id);
+        const user = res.data.find((u) => u._id === id);
         if (user) {
           setRemoteUsername(user.username || "");
           setRemoteProfilePic(user.profilePic || "");
-
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream.current;
-          }
         }
       } catch (err) {
-        console.error("Fetch user error:", err);
+        console.error("User fetch error:", err);
       }
     };
 
-    // ✅ FIXED: separated from fetchUser
+    // 🔹 WebRTC Setup
     const init = async () => {
       try {
+        // ✅ Get ICE servers from Metered
         const turnRes = await fetch(METERED_URL);
         const iceServersResp = await turnRes.json();
+
         const iceServers = Array.isArray(iceServersResp)
           ? iceServersResp
           : iceServersResp.iceServers || [];
 
+        // ✅ Get Media
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
@@ -109,13 +91,17 @@ const VideoCallPage = () => {
         streamRef.current = stream;
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
-        const pc = new RTCPeerConnection({ iceServers });
+        // ✅ Create Peer
+        const pc = new RTCPeerConnection({
+          iceServers,
+          iceCandidatePoolSize: 10,
+        });
         pcRef.current = pc;
 
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
-        });
+        // Add tracks
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
+        // Remote track
         pc.ontrack = (e) => {
           e.streams[0].getTracks().forEach((track) => {
             remoteStream.current.addTrack(track);
@@ -129,6 +115,7 @@ const VideoCallPage = () => {
           setStatus("Connected");
         };
 
+        // ICE
         pc.onicecandidate = (e) => {
           if (e.candidate) {
             const toId = isAnswering ? incomingCall?.from : id;
@@ -138,6 +125,7 @@ const VideoCallPage = () => {
           }
         };
 
+        // Caller
         if (!isAnswering) {
           setStatus("Ringing...");
           const offer = await pc.createOffer();
@@ -149,7 +137,9 @@ const VideoCallPage = () => {
             from: authUser._id,
             username: authUser.username,
           });
-        } else if (incomingCall?.signal) {
+        } 
+        // Answerer
+        else if (incomingCall?.signal) {
           await pc.setRemoteDescription(
             new RTCSessionDescription(incomingCall.signal)
           );
@@ -166,9 +156,7 @@ const VideoCallPage = () => {
         }
 
         socket.on("callAccepted", async (sdp) => {
-          await pc.setRemoteDescription(
-            new RTCSessionDescription(sdp)
-          );
+          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
           setStatus("Connected");
         });
 
@@ -180,13 +168,13 @@ const VideoCallPage = () => {
 
         socket.on("callEnded", handleExit);
       } catch (err) {
-        console.error("WebRTC Error:", err);
+        console.error("WebRTC error:", err);
         setStatus("Error");
       }
     };
 
-    fetchUser(); // ✅ FIXED
-    init();      // ✅ FIXED
+    fetchUser();
+    init();
 
     return () => {
       socket.off("callAccepted");
@@ -197,7 +185,7 @@ const VideoCallPage = () => {
     };
   }, [socket, id, incomingCall, isAnswering]);
 
-  // ⏱ Timer
+  // Timer
   useEffect(() => {
     let interval;
     if (status === "Connected") {
@@ -212,9 +200,9 @@ const VideoCallPage = () => {
   }, [status]);
 
   const formatTime = (s) => {
-    const mins = Math.floor(s / 60).toString().padStart(2, "0");
-    const secs = (s % 60).toString().padStart(2, "0");
-    return `${mins}:${secs}`;
+    const m = String(Math.floor(s / 60)).padStart(2, "0");
+    const sec = String(s % 60).padStart(2, "0");
+    return `${m}:${sec}`;
   };
 
   const toggleAudio = () => {
@@ -236,16 +224,32 @@ const VideoCallPage = () => {
   return (
     <div className="fixed inset-0 bg-black flex flex-col">
 
-      <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover absolute" />
-      <video ref={myVideoRef} autoPlay muted className="w-32 h-40 absolute top-6 right-6 rounded-xl border" />
+      {/* Remote Video */}
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className="absolute w-full h-full object-cover"
+      />
+
+      {/* Local Video */}
+      <video
+        ref={myVideoRef}
+        autoPlay
+        muted
+        playsInline
+        className="absolute top-6 right-6 w-32 h-40 rounded-xl border border-white/20"
+      />
 
       <audio ref={remoteAudioRef} autoPlay />
 
+      {/* Top */}
       <div className="relative z-10 p-4 flex justify-between text-white">
-        <span>{remoteUsername}</span>
+        <span>{remoteUsername || "Connecting..."}</span>
         <span>{formatTime(callDuration)}</span>
       </div>
 
+      {/* Controls */}
       <div className="mt-auto flex justify-center gap-6 pb-10 z-10">
         <button onClick={toggleAudio} className="bg-white/20 p-4 rounded-full">
           {myAudioOn ? "🎤" : "🔇"}
