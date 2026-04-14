@@ -37,120 +37,241 @@ const VideoCallPage = () => {
   const pcRef = useRef(null);
   const durationRef = useRef(0);
   const iceCandidatesQueue = useRef([]);
-  const remoteStream = new MediaStream();
+  // ✅ FIXED — use useRef for remoteStream
+  const remoteStreamRef = useRef(new MediaStream());
+  const ringAudioRef = useRef(null);
 
-
-  // Sync duration for the backend log
+  // ✅ Sync duration ref
   useEffect(() => { durationRef.current = callDuration; }, [callDuration]);
 
-  // ✅ TIMER LOGIC: Starts only when remote video is actually detected
+  // ✅ Ring sound for caller only
+  useEffect(() => {
+    if (!isAnswering && !callStarted) {
+      const audio = new Audio(ringSound);
+      audio.loop = true;
+      ringAudioRef.current = audio;
+      audio.play().catch(() => {});
+    }
+    return () => {
+      if (ringAudioRef.current) {
+        ringAudioRef.current.pause();
+        ringAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  // ✅ Stop ring when call starts
+  useEffect(() => {
+    if (callStarted && ringAudioRef.current) {
+      ringAudioRef.current.pause();
+      ringAudioRef.current = null;
+    }
+  }, [callStarted]);
+
+  // ✅ Timer
   useEffect(() => {
     let interval;
-    if (remoteVideoOn) {
-      setCallStarted(true);
-      setStatus("Connected");
+    if (callStarted) {
       interval = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [remoteVideoOn]);
+  }, [callStarted]);
 
+  // ✅ Fetch remote user
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const res = await axiosInstance.get("/users/suggested");
-        const user = res.data.find(u => u._id === id);
+        const user = Array.isArray(res.data)
+          ? res.data.find(u => u._id === id)
+          : null;
         if (user) {
-          setRemoteUsername(user.username);
-          setRemoteProfilePic(user.profilePic);
+          setRemoteUsername(user.username || "");
+          setRemoteProfilePic(user.profilePic || "");
         }
       } catch (e) { console.error(e); }
     };
-    fetchUser();
+    if (id) fetchUser();
   }, [id]);
 
+  // ✅ Main WebRTC logic
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !authUser?._id) return;
 
     const init = async () => {
       try {
+        // ✅ Fetch TURN credentials
+        console.log("🔄 Fetching TURN credentials...");
         const turnRes = await fetch(METERED_URL);
         const iceServers = await turnRes.json();
+        console.log("✅ ICE Servers:", iceServers);
 
-        // 1. Media First
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // ✅ Get media
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
         streamRef.current = stream;
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+        console.log("🎤 Audio tracks:", stream.getAudioTracks().length);
+        console.log("🎥 Video tracks:", stream.getVideoTracks().length);
 
-        // 2. PC Setup
-        const pc = new RTCPeerConnection({ iceServers });
+        // ✅ Create peer connection
+        const pc = new RTCPeerConnection({
+          iceServers: Array.isArray(iceServers) ? iceServers : [],
+          iceCandidatePoolSize: 10,
+          bundlePolicy: "max-bundle",
+          rtcpMuxPolicy: "require",
+        });
         pcRef.current = pc;
 
-        // 3. Add tracks immediately
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        // ✅ Add local tracks
+        stream.getTracks().forEach(track => {
+          console.log("➕ Adding local track:", track.kind);
+          pc.addTrack(track, stream);
+        });
 
-        // 4. Handle Remote Stream
+        // ✅ Handle remote tracks — FIXED
         pc.ontrack = (event) => {
-          console.log("🎥 Track received:", event.track.kind);
+          console.log("🎥 Remote track received:", event.track.kind);
 
-          // ✅ Add track manually (FIX FOR PC ISSUE)
+          // ✅ Add to stable remoteStream ref
           remoteStreamRef.current.addTrack(event.track);
 
-          // ✅ Attach ONE stable stream
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+          if (event.track.kind === "video") {
+            // ✅ Attach to video element
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            }
+            setRemoteVideoOn(true);
+            setCallStarted(true);
+            setStatus("Connected");
           }
 
-          // ✅ Detect video
-          if (event.track.kind === "video") {
-            setRemoteVideoOn(true);
+          if (event.track.kind === "audio") {
+            // ✅ Attach audio to audio element
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = remoteStreamRef.current;
+              remoteAudioRef.current.volume = 1.0;
+              remoteAudioRef.current.play().catch(e => console.log("Audio play:", e));
+            }
+          }
+        };
+
+        // ✅ ICE candidates
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            const toId = isAnswering ? incomingCall?.from : id;
+            if (toId) {
+              console.log("🧊 Sending ICE to:", toId);
+              socket.emit("iceCandidate", { to: toId, candidate: e.candidate });
+            }
+          }
+        };
+
+        // ✅ Connection state logging
+        pc.oniceconnectionstatechange = () => {
+          console.log("🧊 ICE state:", pc.iceConnectionState);
+          if (pc.iceConnectionState === "connected") {
+            setStatus("Connected");
+            setCallStarted(true);
+          }
+          if (pc.iceConnectionState === "failed") {
+            console.log("❌ ICE failed — restarting");
+            pc.restartIce();
+          }
+          if (pc.iceConnectionState === "disconnected") {
+            setStatus("Reconnecting...");
           }
         };
 
         pc.onconnectionstatechange = () => {
-          console.log("🔗 Connection state:", pc.connectionState);
-          if (pc.connectionState === "connected") {
-            setStatus("Connected");
-            setCallStarted(true);
-          }
+          console.log("🔗 Connection:", pc.connectionState);
         };
 
-        pc.onicecandidate = (e) => {
-          if (e.candidate) socket.emit("iceCandidate", { to: isAnswering ? incomingCall.from : id, candidate: e.candidate });
-        };
-
-        // 5. Signaling
+        // ✅ Caller — send offer
         if (!isAnswering) {
           setStatus("Ringing...");
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          socket.emit("callUser", { to: id, signal: pc.localDescription, from: authUser._id, username: authUser.username });
+          console.log("📞 Calling:", id);
+          socket.emit("callUser", {
+            to: id,
+            signal: pc.localDescription,
+            from: authUser._id,
+            username: authUser.username,
+          });
         } else {
-          await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.signal));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit("answerCall", { to: incomingCall.from, signal: pc.localDescription });
-          clearIncomingCall();
+          // ✅ Answerer — send answer
+          if (incomingCall?.signal && incomingCall?.from) {
+            console.log("📲 Answering from:", incomingCall.from);
+            await pc.setRemoteDescription(
+              new RTCSessionDescription(incomingCall.signal)
+            );
+            // ✅ Flush queued ICE candidates
+            for (const c of iceCandidatesQueue.current) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+            }
+            iceCandidatesQueue.current = [];
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit("answerCall", {
+              to: incomingCall.from,
+              signal: pc.localDescription,
+            });
+            clearIncomingCall();
+            setCallStarted(true);
+            setStatus("Connected");
+          }
         }
-      } catch (err) { setStatus("Media Error"); }
+      } catch (err) {
+        console.error("❌ WebRTC Error:", err);
+        setStatus("Connection Error");
+      }
     };
 
+    // ✅ callAccepted — caller gets answer from receiver
     socket.on("callAccepted", async (sdp) => {
-      await pcRef.current?.setRemoteDescription(new RTCSessionDescription(sdp));
-      iceCandidatesQueue.current.forEach(c => pcRef.current.addIceCandidate(new RTCIceCandidate(c)));
-      iceCandidatesQueue.current = [];
+      console.log("✅ callAccepted received!");
+      try {
+        if (pcRef.current && sdp) {
+          await pcRef.current.setRemoteDescription(
+            new RTCSessionDescription(sdp)
+          );
+          // ✅ Flush queued ICE candidates
+          for (const c of iceCandidatesQueue.current) {
+            try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+          }
+          iceCandidatesQueue.current = [];
+          setCallStarted(true);
+          setStatus("Connected");
+        }
+      } catch (e) { console.error("callAccepted error:", e); }
     });
 
+    // ✅ ICE candidate from remote
     socket.on("iceCandidate", async ({ candidate }) => {
-      if (pcRef.current?.remoteDescription) await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      else iceCandidatesQueue.current.push(candidate);
+      try {
+        if (!pcRef.current || !candidate) return;
+        if (pcRef.current.remoteDescription) {
+          await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          // Queue if remote description not set yet
+          iceCandidatesQueue.current.push(candidate);
+        }
+      } catch (e) { console.error("ICE error:", e); }
     });
 
     socket.on("callEnded", () => handleExit());
+
     init();
 
     return () => {
+      socket.off("callAccepted");
+      socket.off("iceCandidate");
+      socket.off("callEnded");
       streamRef.current?.getTracks().forEach(t => t.stop());
       pcRef.current?.close();
     };
@@ -159,57 +280,69 @@ const VideoCallPage = () => {
   const handleExit = async () => {
     const finalTime = durationRef.current;
     try {
-      // ✅ This sends the time to your ChatPage log
       await axiosInstance.post(`/messages/send/${id}`, {
         text: "Video Call",
         type: finalTime > 0 ? "call_ended" : "call_missed",
-        callDuration: finalTime
+        callDuration: finalTime,
       });
-    } finally {
-      navigate(`/chat/${id}`);
-    }
+    } catch (e) { console.log(e); }
+    finally { navigate(`/chat/${id}`); }
   };
 
   const toggleVideo = () => {
     const track = streamRef.current?.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setMyVideoOn(track.enabled);
-      if (myVideoRef.current) myVideoRef.current.srcObject = streamRef.current;
-    }
+    if (track) { track.enabled = !track.enabled; setMyVideoOn(track.enabled); }
+  };
+
+  const toggleAudio = () => {
+    const track = streamRef.current?.getAudioTracks()[0];
+    if (track) { track.enabled = !track.enabled; setMyAudioOn(track.enabled); }
   };
 
   const formatTime = (s) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const mins = Math.floor(s / 60).toString().padStart(2, "0");
+    const secs = (s % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
   };
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col w-full h-[100dvh]">
-      <audio ref={remoteAudioRef} autoPlay playsInline />
 
-      {/* Remote Video Container */}
+      {/* ✅ Remote audio — must NOT be muted */}
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={false} style={{ display: "none" }} />
+
+      {/* Remote video */}
       <div className="absolute inset-0">
         {remoteVideoOn ? (
           <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
-            <img src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`} className="w-32 h-32 rounded-full mb-4 border-2 border-white/10" alt="" />
-            <h2 className="text-white text-xl font-bold">{remoteUsername}</h2>
-            <p className="text-blue-400 text-sm animate-pulse">{status}</p>
+            <div className="relative mb-4">
+              <img
+                src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`}
+                className="w-32 h-32 rounded-full border-4 border-white/10 object-cover"
+                alt=""
+              />
+              {!callStarted && (
+                <div className="absolute inset-0 rounded-full border-4 border-blue-500/40 animate-ping" />
+              )}
+            </div>
+            <h2 className="text-white text-2xl font-bold">{remoteUsername}</h2>
+            <p className="text-blue-400 text-sm mt-2 animate-pulse">{status}</p>
           </div>
         )}
       </div>
 
-      {/* Top Header */}
+      {/* Top bar */}
       <div className="relative z-10 p-6 flex justify-between items-start pointer-events-none">
         <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-white text-xs font-bold pointer-events-auto">
-          {remoteUsername}
+          {remoteUsername || "Connecting..."}
         </div>
-        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white font-mono pointer-events-auto">
-          {formatTime(callDuration)}
-        </div>
+        {callStarted && (
+          <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white font-mono pointer-events-auto">
+            {formatTime(callDuration)}
+          </div>
+        )}
       </div>
 
       {/* Local PIP */}
@@ -218,27 +351,80 @@ const VideoCallPage = () => {
           {myVideoOn ? (
             <video ref={myVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white/20">Video Off</div>
+            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+              <span className="text-white/20 text-xs font-bold uppercase">Off</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Bottom Controls */}
+      {/* Controls */}
       <div className="mt-auto relative z-30 flex justify-center gap-8 pb-12">
-        <button onClick={() => {
-          const t = streamRef.current?.getAudioTracks()[0];
-          if (t) { t.enabled = !t.enabled; setMyAudioOn(t.enabled); }
-        }} className={`p-5 rounded-full ${myAudioOn ? 'bg-white/10' : 'bg-red-500'} text-white`}>
-          <Icon path={myAudioOn ? <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /> : <path d="M1 1l22 22" />} />
+
+        {/* Mute */}
+        <button
+          onClick={toggleAudio}
+          className={`p-5 rounded-full transition-all active:scale-90 ${myAudioOn ? "bg-white/10" : "bg-red-500"} text-white`}
+        >
+          <Icon path={
+            myAudioOn ? (
+              <>
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </>
+            ) : (
+              <>
+                <line x1="2" x2="22" y1="2" y2="22" />
+                <path d="M18.89 13.23A7.12 7.12 0 0 0 19 11v-1" />
+                <path d="M5 10v1a7 7 0 0 0 12 5" />
+                <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" />
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </>
+            )
+          } />
         </button>
 
-        <button onClick={() => { socket.emit("endCall", { to: isAnswering ? incomingCall.from : id }); handleExit(); }} className="p-6 bg-red-600 rounded-full text-white rotate-[135deg] scale-125">
-          <Icon path={<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6.13-6.13 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />} />
+        {/* End call */}
+        <button
+          onClick={() => {
+            const toId = isAnswering ? incomingCall?.from : id;
+            if (toId) socket?.emit("endCall", { to: toId });
+            handleExit();
+          }}
+          className="p-6 bg-red-600 rounded-full text-white shadow-lg shadow-red-600/40 active:scale-95 transition-all"
+        >
+          <Icon
+            className="w-8 h-8 rotate-[135deg]"
+            path={<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6.13-6.13 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />}
+          />
         </button>
 
-        <button onClick={toggleVideo} className={`p-5 rounded-full ${myVideoOn ? 'bg-white/10' : 'bg-red-500'} text-white`}>
-          <Icon path={<><path d="m22 8-6 4 6 4V8Z" /><rect width="14" height="12" x="2" y="6" rx="2" ry="2" /></>} />
+        {/* Video toggle */}
+        <button
+          onClick={toggleVideo}
+          className={`p-5 rounded-full transition-all active:scale-90 ${myVideoOn ? "bg-white/10" : "bg-red-500"} text-white`}
+        >
+          <Icon path={
+            myVideoOn ? (
+              <>
+                <path d="m22 8-6 4 6 4V8Z" />
+                <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+              </>
+            ) : (
+              <>
+                <line x1="2" x2="22" y1="2" y2="22" />
+                <path d="M7 11V7c0-.55.45-1 1-1h4" />
+                <path d="M14 6h1c.55 0 1 .45 1 1v2.34" />
+                <path d="m22 8-3.5 2.33" />
+                <path d="M2 10v6c0 1.1.9 2 2 2h12c.5 0 .93-.18 1.25-.48" />
+                <path d="m22 16-1.5-1" />
+              </>
+            )
+          } />
         </button>
+
       </div>
     </div>
   );
