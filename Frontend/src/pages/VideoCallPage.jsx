@@ -17,7 +17,7 @@ const VideoCallPage = () => {
   const [searchParams] = useSearchParams();
   const isAnswering = searchParams.get("answer") === "true";
   const navigate = useNavigate();
-
+  
   const { socket, incomingCall, clearIncomingCall } = useSocketStore();
   const { authUser } = useAuthStore();
 
@@ -37,8 +37,6 @@ const VideoCallPage = () => {
   const pcRef = useRef(null);
   const durationRef = useRef(0);
   const iceCandidatesQueue = useRef([]);
-  const remoteStream = new MediaStream();
-
 
   // Sync duration for the backend log
   useEffect(() => { durationRef.current = callDuration; }, [callDuration]);
@@ -92,26 +90,12 @@ const VideoCallPage = () => {
 
         // 4. Handle Remote Stream
         pc.ontrack = (e) => {
-          console.log("🎥 Remote track:", e.track.kind);
-          remoteStream.addTrack(e.track);
-
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
-          if (remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = remoteStream;
-          }
           if (e.track.kind === "video") {
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
             setRemoteVideoOn(true);
-            setStatus("Connected");
           }
-        };
-
-        pc.onconnectionstatechange = () => {
-          console.log("🔗 Connection state:", pc.connectionState);
-          if (pc.connectionState === "connected") {
-            setStatus("Connected");
-            setCallStarted(true);
+          if (e.track.kind === "audio" && remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = e.streams[0];
           }
         };
 
@@ -187,16 +171,16 @@ const VideoCallPage = () => {
   return (
     <div className="fixed inset-0 bg-black flex flex-col w-full h-[100dvh]">
       <audio ref={remoteAudioRef} autoPlay playsInline />
-
+      
       {/* Remote Video Container */}
       <div className="absolute inset-0">
         {remoteVideoOn ? (
           <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
-            <img src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`} className="w-32 h-32 rounded-full mb-4 border-2 border-white/10" alt="" />
-            <h2 className="text-white text-xl font-bold">{remoteUsername}</h2>
-            <p className="text-blue-400 text-sm animate-pulse">{status}</p>
+             <img src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`} className="w-32 h-32 rounded-full mb-4 border-2 border-white/10" alt="" />
+             <h2 className="text-white text-xl font-bold">{remoteUsername}</h2>
+             <p className="text-blue-400 text-sm animate-pulse">{status}</p>
           </div>
         )}
       </div>
@@ -226,7 +210,7 @@ const VideoCallPage = () => {
       <div className="mt-auto relative z-30 flex justify-center gap-8 pb-12">
         <button onClick={() => {
           const t = streamRef.current?.getAudioTracks()[0];
-          if (t) { t.enabled = !t.enabled; setMyAudioOn(t.enabled); }
+          if(t) { t.enabled = !t.enabled; setMyAudioOn(t.enabled); }
         }} className={`p-5 rounded-full ${myAudioOn ? 'bg-white/10' : 'bg-red-500'} text-white`}>
           <Icon path={myAudioOn ? <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /> : <path d="M1 1l22 22" />} />
         </button>
