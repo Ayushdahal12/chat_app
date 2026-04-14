@@ -25,7 +25,10 @@ const FeedPage = () => {
   const imageInputRef = useRef(null);
   const lastTapRef = useRef({});
 
-  // ✅ ADD GUARD HERE — after all hooks
+
+  useEffect(() => { getFeedPosts(); }, []);
+
+  // ✅ GUARD — after ALL hooks
   if (!authUser) {
     return (
       <div style={{
@@ -46,77 +49,79 @@ const FeedPage = () => {
       </div>
     );
   }
-  useEffect(() => { getFeedPosts(); }, []);
+}
 
   const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-  };
 
-  const handleUploadAndPost = async () => {
-    if (!imagePreview) return;
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", imageInputRef.current?.files[0]);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
-      const data = await res.json();
-      setImageUrl(data.secure_url);
-    } catch (err) { console.log(err); }
-    finally { setIsUploading(false); }
-  };
+    const handleImageSelect = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    };
 
-  const handlePost = async () => {
-    if (!imageUrl) { await handleUploadAndPost(); return; }
-    setIsPosting(true);
-    const res = await createPost(imageUrl, caption);
-    if (res.success) {
-      setShowCreate(false); setCaption(""); setImagePreview(null); setImageUrl("");
-      if (imageInputRef.current) imageInputRef.current.value = "";
-    }
-    setIsPosting(false);
-  };
+    const handleUploadAndPost = async () => {
+      if (!imagePreview) return;
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", imageInputRef.current?.files[0]);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
+        const data = await res.json();
+        setImageUrl(data.secure_url);
+      } catch (err) { console.log(err); }
+      finally { setIsUploading(false); }
+    };
 
-  useEffect(() => { if (imagePreview && !imageUrl) handleUploadAndPost(); }, [imagePreview]);
+    const handlePost = async () => {
+      if (!imageUrl) { await handleUploadAndPost(); return; }
+      setIsPosting(true);
+      const res = await createPost(imageUrl, caption);
+      if (res.success) {
+        setShowCreate(false); setCaption(""); setImagePreview(null); setImageUrl("");
+        if (imageInputRef.current) imageInputRef.current.value = "";
+      }
+      setIsPosting(false);
+    };
 
-  const handleDoubleTap = (postId) => {
-    const now = Date.now();
-    const lastTap = lastTapRef.current[postId] || 0;
-    if (now - lastTap < 300) {
+    useEffect(() => { if (imagePreview && !imageUrl) handleUploadAndPost(); }, [imagePreview]);
+
+    const handleDoubleTap = (postId) => {
+      const now = Date.now();
+      const lastTap = lastTapRef.current[postId] || 0;
+      if (now - lastTap < 300) {
+        likePost(postId);
+        setDoubleTapPost(postId);
+        setLikedPosts(p => ({ ...p, [postId]: true }));
+        setTimeout(() => setDoubleTapPost(null), 900);
+      }
+      lastTapRef.current[postId] = now;
+    };
+
+    const handleLike = (postId, isLiked) => {
       likePost(postId);
-      setDoubleTapPost(postId);
-      setLikedPosts(p => ({ ...p, [postId]: true }));
-      setTimeout(() => setDoubleTapPost(null), 900);
-    }
-    lastTapRef.current[postId] = now;
-  };
+      setLikedPosts(p => ({ ...p, [postId]: !isLiked }));
+    };
 
-  const handleLike = (postId, isLiked) => {
-    likePost(postId);
-    setLikedPosts(p => ({ ...p, [postId]: !isLiked }));
-  };
+    const handleComment = async (postId) => {
+      if (!commentText.trim()) return;
+      await commentPost(postId, commentText);
+      setCommentText("");
+    };
 
-  const handleComment = async (postId) => {
-    if (!commentText.trim()) return;
-    await commentPost(postId, commentText);
-    setCommentText("");
-  };
+    const formatTime = (date) => {
+      const diff = Math.floor((new Date() - new Date(date)) / 1000);
+      if (diff < 60) return "just now";
+      if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+      return `${Math.floor(diff / 86400)}d`;
+    };
 
-  const formatTime = (date) => {
-    const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    return `${Math.floor(diff / 86400)}d`;
-  };
-
-  return (
-    <>
-      <style>{`
+    return (
+      <>
+        <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 
         :root {
@@ -597,272 +602,272 @@ const FeedPage = () => {
         }
       `}</style>
 
-      <div className="feed-root">
+        <div className="feed-root">
 
-        {/* ── HEADER ── */}
-        <header className="feed-header">
-          <div className="feed-header-left">
-            <button className="back-btn" onClick={() => navigate("/")}>
-              <ArrowLeft size={18} strokeWidth={2.5} />
+          {/* ── HEADER ── */}
+          <header className="feed-header">
+            <div className="feed-header-left">
+              <button className="back-btn" onClick={() => navigate("/")}>
+                <ArrowLeft size={18} strokeWidth={2.5} />
+              </button>
+              <h1 className="feed-logo">गफ <span>Feed</span></h1>
+            </div>
+            <button className="post-btn" onClick={() => setShowCreate(true)}>
+              <Plus size={15} strokeWidth={3} />
+              New Post
             </button>
-            <h1 className="feed-logo">गफ <span>Feed</span></h1>
-          </div>
-          <button className="post-btn" onClick={() => setShowCreate(true)}>
-            <Plus size={15} strokeWidth={3} />
-            New Post
-          </button>
-        </header>
+          </header>
 
-        {/* ── MAIN FEED ── */}
-        <div className="feed-container">
+          {/* ── MAIN FEED ── */}
+          <div className="feed-container">
 
-          {isLoading ? (
-            /* Skeleton loaders */
-            [1, 2, 3].map(i => (
-              <div key={i} className="skeleton-card">
-                <div className="skeleton-header">
-                  <div className="skeleton-avatar shimmer" />
-                  <div className="skeleton-lines">
-                    <div className="skeleton-line shimmer" style={{ width: "40%" }} />
-                    <div className="skeleton-line shimmer" style={{ width: "25%" }} />
-                  </div>
-                </div>
-                <div className="skeleton-image shimmer" />
-                <div className="skeleton-footer">
-                  <div className="skeleton-action shimmer" />
-                  <div className="skeleton-action shimmer" />
-                </div>
-              </div>
-            ))
-          ) : posts.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📸</div>
-              <p className="empty-title">Nothing here yet</p>
-              <p className="empty-sub">Be the first to share a moment!</p>
-              <button className="empty-cta" onClick={() => setShowCreate(true)}>
-                Create First Post
-              </button>
-            </div>
-          ) : (
-            posts.map((post, idx) => {
-              const isLiked = authUser ? post.likes.includes(authUser._id) : false;
-              const isMyPost = authUser ? post.userId?._id === authUser._id : false;
-
-              return (
-                <div
-                  key={post._id}
-                  className="post-card"
-                  style={{ animationDelay: `${idx * 0.07}s` }}
-                >
-                  {/* Header */}
-                  <div className="post-header">
-                    <div className="post-user">
-                      <img
-                        className="post-avatar"
-                        src={post.userId.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${post.userId.username}`}
-                        alt={post.userId.username}
-                      />
-                      <div>
-                        <p className="post-username">{post.userId.username}</p>
-                        <p className="post-time">{formatTime(post.createdAt)} ago</p>
-                      </div>
+            {isLoading ? (
+              /* Skeleton loaders */
+              [1, 2, 3].map(i => (
+                <div key={i} className="skeleton-card">
+                  <div className="skeleton-header">
+                    <div className="skeleton-avatar shimmer" />
+                    <div className="skeleton-lines">
+                      <div className="skeleton-line shimmer" style={{ width: "40%" }} />
+                      <div className="skeleton-line shimmer" style={{ width: "25%" }} />
                     </div>
-                    {isMyPost && (
-                      <button className="delete-btn" onClick={() => deletePost(post._id)}>
-                        <Trash2 size={16} />
-                      </button>
-                    )}
                   </div>
+                  <div className="skeleton-image shimmer" />
+                  <div className="skeleton-footer">
+                    <div className="skeleton-action shimmer" />
+                    <div className="skeleton-action shimmer" />
+                  </div>
+                </div>
+              ))
+            ) : posts.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📸</div>
+                <p className="empty-title">Nothing here yet</p>
+                <p className="empty-sub">Be the first to share a moment!</p>
+                <button className="empty-cta" onClick={() => setShowCreate(true)}>
+                  Create First Post
+                </button>
+              </div>
+            ) : (
+              posts.map((post, idx) => {
+                const isLiked = authUser ? post.likes.includes(authUser._id) : false;
+                const isMyPost = authUser ? post.userId?._id === authUser._id : false;
 
-                  {/* Image */}
-                  <div className="post-image-wrap" onClick={() => handleDoubleTap(post._id)}>
-                    <img src={post.image} alt="post" />
-                    {doubleTapPost === post._id && (
-                      <div className="heart-burst">
-                        <Heart size={90} className="heart-burst-icon" fill="#e84040" color="#e84040" />
+                return (
+                  <div
+                    key={post._id}
+                    className="post-card"
+                    style={{ animationDelay: `${idx * 0.07}s` }}
+                  >
+                    {/* Header */}
+                    <div className="post-header">
+                      <div className="post-user">
+                        <img
+                          className="post-avatar"
+                          src={post.userId.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${post.userId.username}`}
+                          alt={post.userId.username}
+                        />
+                        <div>
+                          <p className="post-username">{post.userId.username}</p>
+                          <p className="post-time">{formatTime(post.createdAt)} ago</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      {isMyPost && (
+                        <button className="delete-btn" onClick={() => deletePost(post._id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="post-actions">
-                    <button
-                      className={`action-btn like-btn ${isLiked ? "liked" : ""}`}
-                      onClick={() => handleLike(post._id, isLiked)}
-                    >
-                      <Heart
-                        size={24}
-                        strokeWidth={isLiked ? 0 : 2}
-                        fill={isLiked ? "#e84040" : "none"}
-                        color={isLiked ? "#e84040" : "currentColor"}
-                        style={{ transition: "all 0.2s" }}
-                      />
-                      <span className="action-count">{post.likes.length}</span>
-                    </button>
-                    <button className="action-btn" onClick={() => setActiveComment(post._id)}>
-                      <MessageCircle size={24} strokeWidth={2} />
-                      <span className="action-count">{post.comments.length}</span>
-                    </button>
-                  </div>
+                    {/* Image */}
+                    <div className="post-image-wrap" onClick={() => handleDoubleTap(post._id)}>
+                      <img src={post.image} alt="post" />
+                      {doubleTapPost === post._id && (
+                        <div className="heart-burst">
+                          <Heart size={90} className="heart-burst-icon" fill="#e84040" color="#e84040" />
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Body */}
-                  <div className="post-body">
-                    <p className="post-likes">
-                      {post.likes.length} {post.likes.length === 1 ? "love" : "loves"}
-                    </p>
-                    {post.caption && (
-                      <p className="post-caption">
-                        <strong>{post.userId.username}</strong>
-                        {post.caption}
+                    {/* Actions */}
+                    <div className="post-actions">
+                      <button
+                        className={`action-btn like-btn ${isLiked ? "liked" : ""}`}
+                        onClick={() => handleLike(post._id, isLiked)}
+                      >
+                        <Heart
+                          size={24}
+                          strokeWidth={isLiked ? 0 : 2}
+                          fill={isLiked ? "#e84040" : "none"}
+                          color={isLiked ? "#e84040" : "currentColor"}
+                          style={{ transition: "all 0.2s" }}
+                        />
+                        <span className="action-count">{post.likes.length}</span>
+                      </button>
+                      <button className="action-btn" onClick={() => setActiveComment(post._id)}>
+                        <MessageCircle size={24} strokeWidth={2} />
+                        <span className="action-count">{post.comments.length}</span>
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="post-body">
+                      <p className="post-likes">
+                        {post.likes.length} {post.likes.length === 1 ? "love" : "loves"}
                       </p>
-                    )}
-                    {post.comments.length > 0 && (
-                      <button className="view-comments" onClick={() => setActiveComment(post._id)}>
-                        View all {post.comments.length} comment{post.comments.length !== 1 ? "s" : ""}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* ── CREATE POST MODAL ── */}
-        {showCreate && (
-          <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
-            <div className="create-modal">
-              <div className="modal-header">
-                <h2 className="modal-title">New Post</h2>
-                <button
-                  className="modal-close"
-                  onClick={() => { setShowCreate(false); setImagePreview(null); setImageUrl(""); setCaption(""); }}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <label className={`upload-zone ${imagePreview ? "has-image" : ""}`}>
-                {imagePreview ? (
-                  <>
-                    <img src={imagePreview} alt="preview" />
-                    {isUploading && (
-                      <div className="uploading-overlay">
-                        <Loader2 size={28} color="#0d0d0d" style={{ animation: "spin 1s linear infinite" }} />
-                        <p>Uploading...</p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="upload-placeholder">
-                    <ImagePlus size={40} />
-                    <p>Tap to add photo</p>
-                    <span>Square 1:1 recommended</span>
-                  </div>
-                )}
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={handleImageSelect}
-                />
-              </label>
-
-              <textarea
-                className="caption-input"
-                placeholder="Write something..."
-                rows={3}
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-              />
-
-              <button
-                className="share-btn"
-                onClick={handlePost}
-                disabled={!imagePreview || isUploading || isPosting}
-              >
-                {isUploading || isPosting ? (
-                  <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
-                ) : (
-                  <>
-                    <Sparkles />
-                    Share Post
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── COMMENT MODAL ── */}
-        {activeComment && (
-          <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setActiveComment(null)}>
-            <div className="comment-modal">
-              <div className="comment-modal-header">
-                <h2 className="modal-title">Comments</h2>
-                <button className="modal-close" onClick={() => setActiveComment(null)}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="comment-list">
-                {posts.find(p => p._id === activeComment)?.comments.length === 0 ? (
-                  <div className="no-comments">
-                    <p style={{ fontSize: 32, marginBottom: 8 }}>💬</p>
-                    <p>No comments yet. Be the first!</p>
-                  </div>
-                ) : (
-                  posts.find(p => p._id === activeComment)?.comments.map((c, i) => (
-                    <div key={i} className="comment-item">
-                      <img
-                        className="comment-avatar"
-                        src={c.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${c.username}`}
-                        alt={c.username}
-                      />
-                      <div className="comment-bubble">
-                        <p className="comment-author">{c.username}</p>
-                        <p className="comment-text">{c.text}</p>
-                      </div>
+                      {post.caption && (
+                        <p className="post-caption">
+                          <strong>{post.userId.username}</strong>
+                          {post.caption}
+                        </p>
+                      )}
+                      {post.comments.length > 0 && (
+                        <button className="view-comments" onClick={() => setActiveComment(post._id)}>
+                          View all {post.comments.length} comment{post.comments.length !== 1 ? "s" : ""}
+                        </button>
+                      )}
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-              <div className="comment-input-row">
-                <img
-                  className="comment-my-avatar"
-                  src={authUser?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${authUser?.username}`}
-                  alt="me"
-                />
-                <div className="comment-input-wrap">
-                  <input
-                    className="comment-input"
-                    type="text"
-                    placeholder="Add a comment..."
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleComment(activeComment)}
-                  />
+          {/* ── CREATE POST MODAL ── */}
+          {showCreate && (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
+              <div className="create-modal">
+                <div className="modal-header">
+                  <h2 className="modal-title">New Post</h2>
+                  <button
+                    className="modal-close"
+                    onClick={() => { setShowCreate(false); setImagePreview(null); setImageUrl(""); setCaption(""); }}
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
+
+                <label className={`upload-zone ${imagePreview ? "has-image" : ""}`}>
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="preview" />
+                      {isUploading && (
+                        <div className="uploading-overlay">
+                          <Loader2 size={28} color="#0d0d0d" style={{ animation: "spin 1s linear infinite" }} />
+                          <p>Uploading...</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="upload-placeholder">
+                      <ImagePlus size={40} />
+                      <p>Tap to add photo</p>
+                      <span>Square 1:1 recommended</span>
+                    </div>
+                  )}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleImageSelect}
+                  />
+                </label>
+
+                <textarea
+                  className="caption-input"
+                  placeholder="Write something..."
+                  rows={3}
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                />
+
                 <button
-                  className="send-btn"
-                  onClick={() => handleComment(activeComment)}
-                  disabled={!commentText.trim()}
+                  className="share-btn"
+                  onClick={handlePost}
+                  disabled={!imagePreview || isUploading || isPosting}
                 >
-                  <Send size={14} />
+                  {isUploading || isPosting ? (
+                    <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+                  ) : (
+                    <>
+                      <Sparkles />
+                      Share Post
+                    </>
+                  )}
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
-    </>
-  );
-};
+          {/* ── COMMENT MODAL ── */}
+          {activeComment && (
+            <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setActiveComment(null)}>
+              <div className="comment-modal">
+                <div className="comment-modal-header">
+                  <h2 className="modal-title">Comments</h2>
+                  <button className="modal-close" onClick={() => setActiveComment(null)}>
+                    <X size={18} />
+                  </button>
+                </div>
 
-export default FeedPage;
+                <div className="comment-list">
+                  {posts.find(p => p._id === activeComment)?.comments.length === 0 ? (
+                    <div className="no-comments">
+                      <p style={{ fontSize: 32, marginBottom: 8 }}>💬</p>
+                      <p>No comments yet. Be the first!</p>
+                    </div>
+                  ) : (
+                    posts.find(p => p._id === activeComment)?.comments.map((c, i) => (
+                      <div key={i} className="comment-item">
+                        <img
+                          className="comment-avatar"
+                          src={c.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${c.username}`}
+                          alt={c.username}
+                        />
+                        <div className="comment-bubble">
+                          <p className="comment-author">{c.username}</p>
+                          <p className="comment-text">{c.text}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="comment-input-row">
+                  <img
+                    className="comment-my-avatar"
+                    src={authUser?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${authUser?.username}`}
+                    alt="me"
+                  />
+                  <div className="comment-input-wrap">
+                    <input
+                      className="comment-input"
+                      type="text"
+                      placeholder="Add a comment..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleComment(activeComment)}
+                    />
+                  </div>
+                  <button
+                    className="send-btn"
+                    onClick={() => handleComment(activeComment)}
+                    disabled={!commentText.trim()}
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </>
+    );
+  };
+
+  export default FeedPage;
 
 
 
