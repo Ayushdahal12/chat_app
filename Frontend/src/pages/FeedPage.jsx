@@ -256,32 +256,26 @@ const FeedPage = () => {
                 Create First Post
               </button>
             </div>
-          ) : !authUser ? (
-            <div className="empty-state">
-              <div className="empty-icon">🔒</div>
-              <p className="empty-title">Please login first</p>
-            </div>
           ) : (
             posts.map((post, idx) => {
-              const isLiked = authUser ? post.likes.includes(authUser._id) : false;
-              const isMyPost = authUser ? post.userId?._id === authUser._id : false;
-
+              if (!post || !post._id || !post.userId || !post.userId._id) {
+                console.warn('Skipping post due to missing data:', post);
+                return null;
+              }
+              const isLiked = authUser ? Array.isArray(post.likes) && post.likes.includes(authUser._id) : false;
+              const isMyPost = authUser ? post.userId && post.userId._id === authUser._id : false;
               return (
-                <div
-                  key={post._id}
-                  className="post-card"
-                  style={{ animationDelay: `${idx * 0.07}s` }}
-                >
+                <div key={post._id} className="post-card" style={{ animationDelay: `${idx * 0.07}s` }}>
                   {/* Header */}
                   <div className="post-header">
                     <div className="post-user">
                       <img
                         className="post-avatar"
-                        src={post.userId.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${post.userId.username}`}
-                        alt={post.userId.username}
+                        src={post.userId && post.userId.profilePic ? post.userId.profilePic : `https://api.dicebear.com/7.x/thumbs/svg?seed=${post.userId && post.userId.username}`}
+                        alt={post.userId && post.userId.username ? post.userId.username : 'User'}
                       />
                       <div>
-                        <p className="post-username">{post.userId.username}</p>
+                        <p className="post-username">{post.userId && post.userId.username ? post.userId.username : 'Unknown'}</p>
                         <p className="post-time">{formatTime(post.createdAt)} ago</p>
                       </div>
                     </div>
@@ -315,26 +309,24 @@ const FeedPage = () => {
                         color={isLiked ? "#e84040" : "currentColor"}
                         style={{ transition: "all 0.2s" }}
                       />
-                      <span className="action-count">{post.likes.length}</span>
+                      <span className="action-count">{Array.isArray(post.likes) ? post.likes.length : 0}</span>
                     </button>
                     <button className="action-btn" onClick={() => setActiveComment(post._id)}>
                       <MessageCircle size={24} strokeWidth={2} />
-                      <span className="action-count">{post.comments.length}</span>
+                      <span className="action-count">{Array.isArray(post.comments) ? post.comments.length : 0}</span>
                     </button>
                   </div>
 
                   {/* Body */}
                   <div className="post-body">
-                    <p className="post-likes">
-                      {post.likes.length} {post.likes.length === 1 ? "love" : "loves"}
-                    </p>
+                    <p className="post-likes">{Array.isArray(post.likes) ? post.likes.length : 0} {(Array.isArray(post.likes) && post.likes.length === 1) ? "love" : "loves"}</p>
                     {post.caption && (
                       <p className="post-caption">
-                        <strong>{post.userId.username}</strong>
+                        <strong>{post.userId && post.userId.username ? post.userId.username : 'Unknown'}</strong>
                         {post.caption}
                       </p>
                     )}
-                    {post.comments.length > 0 && (
+                    {Array.isArray(post.comments) && post.comments.length > 0 && (
                       <button className="view-comments" onClick={() => setActiveComment(post._id)}>
                         View all {post.comments.length} comment{post.comments.length !== 1 ? "s" : ""}
                       </button>
