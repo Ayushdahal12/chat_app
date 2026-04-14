@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+// import { sendOTPEmail } from "../utils/mailer.js";
 
 const generateToken = (userId, res) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -16,88 +17,40 @@ const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-const sendOTPEmail = async (email, otp) => {
-  try {
-    const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.default.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
-      },
-    });
-    await transporter.sendMail({
-      from: `"GUFF 💬" <${process.env.GMAIL_USER}>`,
-      to: email,
-      subject: "Your GUFF Verification Code",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px; background: #1a1a2e; border-radius: 16px; color: white;">
-          <h1 style="text-align: center; color: #7c3aed;">GUFF 💬</h1>
-          <p style="text-align: center; color: #a0a0b0;">Your verification code is:</p>
-          <div style="text-align: center; margin: 24px 0;">
-            <span style="font-size: 48px; font-weight: bold; letter-spacing: 12px; color: #7c3aed;">
-              ${otp}
-            </span>
-          </div>
-          <p style="text-align: center; color: #a0a0b0; font-size: 13px;">
-            This code expires in <strong>10 minutes</strong>
-          </p>
-        </div>
-      `,
-    });
-    console.log("✅ Email sent to:", email);
-  } catch (err) {
-    console.log("❌ Email failed:", err.message);
-  }
-};
-
 export const signup = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password)
+    if (!username || !email || !password) {
       return res.status(400).json({ message: "All fields required" });
-
-    if (password.length < 6)
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
-
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-      isVerified: true,
-    });
-    if (existingUser)
-      return res.status(400).json({ message: "Username or email already taken" });
-
-    await User.deleteOne({ email, isVerified: false });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       otp,
-      otpExpiry,
+      otpExpiry: Date.now() + 10 * 60 * 1000,
       isVerified: false,
     });
 
-    // Try email — won't crash if fails
-    await sendOTPEmail(email, otp);
+    console.log("OTP (DEV ONLY):", otp);
 
-    console.log("OTP for", email, ":", otp);
-
-    res.status(201).json({
-      message: "OTP generated!",
+    return res.status(201).json({
+      message: "OTP generated",
       userId: user._id,
       email: user.email,
-      otp, // ✅ show in frontend for testing
+      otp, // 👈 SEND OTP TO FRONTEND
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 export const verifyOTP = async (req, res) => {
   try {
@@ -196,9 +149,8 @@ export const forgotPassword = async (req, res) => {
     await sendOTPEmail(email, otp);
 
     res.status(200).json({
-      message: "OTP sent!",
+      message: "OTP sent to your email!",
       userId: user._id,
-      otp, // ✅ show in frontend for testing
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
