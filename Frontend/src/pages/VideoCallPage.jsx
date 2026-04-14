@@ -60,6 +60,9 @@ const VideoCallPage = () => {
     };
   }, []);
 
+
+
+
   // ✅ Stop ring when call starts
   useEffect(() => {
     if (callStarted && ringAudioRef.current) {
@@ -78,6 +81,12 @@ const VideoCallPage = () => {
     }
     return () => clearInterval(interval);
   }, [callStarted]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
+      remoteVideoRef.current.play().catch(() => { });
+    }
+  }, [remoteVideoOn]);
 
   // ✅ Fetch remote user
   useEffect(() => {
@@ -105,8 +114,11 @@ const VideoCallPage = () => {
         // ✅ Fetch TURN credentials
         console.log("🔄 Fetching TURN credentials...");
         const turnRes = await fetch(METERED_URL);
-        const iceServers = await turnRes.json();
-        console.log("✅ ICE Servers:", iceServers);
+        const iceServersResp = await turnRes.json();
+
+        const iceServers = Array.isArray(iceServersResp)
+          ? iceServersResp
+          : iceServersResp.iceServers || [];
 
         // ✅ Get media
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -137,15 +149,19 @@ const VideoCallPage = () => {
         pc.ontrack = (event) => {
           console.log("🎥 Track received:", event.track.kind);
 
-          // Add track to ONE shared stream
-          remoteStreamRef.current.addTrack(event.track);
+          // Avoid duplicate tracks
+          const existingTracks = remoteStreamRef.current.getTracks();
+          const alreadyAdded = existingTracks.find(t => t.id === event.track.id);
 
-          // Attach stream to video
-          if (remoteVideoRef.current) {
+          if (!alreadyAdded) {
+            remoteStreamRef.current.addTrack(event.track);
+          }
+
+          // Attach ONLY ONCE
+          if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
           }
 
-          // Detect video presence
           if (event.track.kind === "video") {
             setRemoteVideoOn(true);
           }
@@ -309,7 +325,9 @@ const VideoCallPage = () => {
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            muted={false}
+            muted
+            // muted={false}
+
             className="w-full h-full object-cover"
           />
 
