@@ -25,6 +25,27 @@ const FeedPage = () => {
   const imageInputRef = useRef(null);
   const lastTapRef = useRef({});
 
+  // ✅ ADD GUARD HERE — after all hooks
+  if (!authUser) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fafaf8",
+      }}>
+        <div style={{
+          width: 40, height: 40,
+          border: "3px solid #e84040",
+          borderTopColor: "transparent",
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
   useEffect(() => { getFeedPosts(); }, []);
 
   const handleImageSelect = (e) => {
@@ -624,8 +645,8 @@ const FeedPage = () => {
             </div>
           ) : (
             posts.map((post, idx) => {
-              const isLiked = post.likes.includes(authUser._id);
-              const isMyPost = post.userId._id === authUser._id;
+              const isLiked = authUser ? post.likes.includes(authUser._id) : false;
+              const isMyPost = authUser ? post.userId?._id === authUser._id : false;
 
               return (
                 <div
@@ -842,3 +863,18 @@ const FeedPage = () => {
 };
 
 export default FeedPage;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
