@@ -210,12 +210,14 @@ const VideoCallPage = () => {
 
   const handleExit = async () => {
     const finalTime = durationRef.current;
+    // If call was ever connected, treat as ended, else missed
+    const wasConnected = status === "Connected" || remoteVideoOn;
     try {
       await sendMessage(
         id,
         "Video Call",
-        finalTime > 0 ? "call_ended" : "call_missed",
-        finalTime
+        wasConnected ? "call_ended" : "call_missed",
+        wasConnected ? finalTime : 0
       );
     } finally {
       navigate(`/chat/${id}`);
@@ -320,6 +322,7 @@ const VideoCallPage = () => {
         <button 
           onClick={() => { 
             socket.emit("endCall", { to: isAnswering ? incomingCall?.from : id }); 
+            socket.emit("callEnded", { to: isAnswering ? incomingCall?.from : id }); // Ensure both sides get event
             handleExit(); 
           }} 
           className="p-6 bg-red-600 rounded-[2.5rem] text-white shadow-lg shadow-red-600/40 hover:bg-red-700 transition-all active:scale-95 group"
