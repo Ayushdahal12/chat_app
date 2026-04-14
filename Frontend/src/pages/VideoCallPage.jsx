@@ -28,141 +28,101 @@ const VideoCallPage = () => {
 
   const myVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const remoteAudioRef = useRef(null);
   const streamRef = useRef(null);
   const pcRef = useRef(null);
   const durationRef = useRef(0);
-  const remoteStream = useRef(new MediaStream());
+  const iceQueue = useRef([]); // Critical for holding network info until ready
 
   if (!id) return <div className="text-red-500 p-8">Invalid Call</div>;
 
   const handleExit = async () => {
     const finalTime = durationRef.current;
-    const wasConnected = status === "Connected" || remoteVideoOn;
-
+    const wasConnected = status === "Connected";
     try {
-      await sendMessage(
-        id,
-        "Video Call",
-        wasConnected ? "call_ended" : "call_missed",
-        wasConnected ? finalTime : 0
-      );
+      await sendMessage(id, "Video Call", wasConnected ? "call_ended" : "call_missed", wasConnected ? finalTime : 0);
     } finally {
       navigate(`/chat/${id}`);
     }
   };
 
   useEffect(() => {
-    if (!socket) return;
-
-    // 🔹 Fetch User Info
     const fetchUser = async () => {
       try {
         const res = await axiosInstance.get("/users/suggested");
-        if (!Array.isArray(res.data)) return;
-
         const user = res.data.find((u) => u._id === id);
         if (user) {
           setRemoteUsername(user.username || "");
           setRemoteProfilePic(user.profilePic || "");
         }
-      } catch (err) {
-        console.error("User fetch error:", err);
-      }
+      } catch (err) { console.error(err); }
     };
+    fetchUser();
+  }, [id]);
 
-    // 🔹 WebRTC Setup
+  useEffect(() => {
+    if (!socket || !authUser) return;
+
     const init = async () => {
       try {
-        // ✅ Get ICE servers from Metered
         const turnRes = await fetch(METERED_URL);
         const iceServersResp = await turnRes.json();
+        const iceServers = Array.isArray(iceServersResp) ? iceServersResp : iceServersResp.iceServers || [];
 
-        const iceServers = Array.isArray(iceServersResp)
-          ? iceServersResp
-          : iceServersResp.iceServers || [];
-
-        // ✅ Get Media
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         streamRef.current = stream;
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
-        // ✅ Create Peer
-        const pc = new RTCPeerConnection({
-          iceServers,
-          iceCandidatePoolSize: 10,
-        });
+        const pc = new RTCPeerConnection({ iceServers });
         pcRef.current = pc;
 
-        // Add tracks
         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-        // Remote track
         pc.ontrack = (e) => {
-          e.streams[0].getTracks().forEach((track) => {
-            remoteStream.current.addTrack(track);
-          });
-
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream.current;
+            remoteVideoRef.current.srcObject = e.streams[0];
+            setRemoteVideoOn(true);
+            setStatus("Connected");
           }
-
-          setRemoteVideoOn(true);
-          setStatus("Connected");
         };
 
-        // ICE
         pc.onicecandidate = (e) => {
           if (e.candidate) {
             const toId = isAnswering ? incomingCall?.from : id;
-            if (toId) {
-              socket.emit("iceCandidate", { to: toId, candidate: e.candidate });
-            }
+            socket.emit("iceCandidate", { to: toId, candidate: e.candidate });
           }
         };
 
-        // Caller
         if (!isAnswering) {
           setStatus("Ringing...");
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-
-          socket.emit("callUser", {
-            to: id,
-            signal: offer,
-            from: authUser._id,
-            username: authUser.username,
-          });
-        } 
-        // Answerer
-        else if (incomingCall?.signal) {
-          await pc.setRemoteDescription(
-            new RTCSessionDescription(incomingCall.signal)
-          );
-
+          socket.emit("callUser", { to: id, signal: offer, from: authUser._id, username: authUser.username });
+        } else if (incomingCall?.signal) {
+          await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.signal));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          socket.emit("answerCall", { to: incomingCall.from, signal: answer });
 
-          socket.emit("answerCall", {
-            to: incomingCall.from,
-            signal: answer,
-          });
-
+          // Process early ICE candidates
+          iceQueue.current.forEach((cand) => pc.addIceCandidate(new RTCIceCandidate(cand)));
+          iceQueue.current = [];
           clearIncomingCall();
         }
 
         socket.on("callAccepted", async (sdp) => {
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-          setStatus("Connected");
+          if (pc.signalingState !== "stable") {
+            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            iceQueue.current.forEach((cand) => pc.addIceCandidate(new RTCIceCandidate(cand)));
+            iceQueue.current = [];
+            setStatus("Connected");
+          }
         });
 
         socket.on("iceCandidate", async ({ candidate }) => {
-          if (candidate) {
+          if (pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            iceQueue.current.push(candidate);
           }
         });
 
@@ -173,7 +133,6 @@ const VideoCallPage = () => {
       }
     };
 
-    fetchUser();
     init();
 
     return () => {
@@ -183,9 +142,8 @@ const VideoCallPage = () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       pcRef.current?.close();
     };
-  }, [socket, id, incomingCall, isAnswering]);
+  }, [socket]); // Don't restart on every re-render
 
-  // Timer
   useEffect(() => {
     let interval;
     if (status === "Connected") {
@@ -199,74 +157,53 @@ const VideoCallPage = () => {
     return () => clearInterval(interval);
   }, [status]);
 
-  const formatTime = (s) => {
-    const m = String(Math.floor(s / 60)).padStart(2, "0");
-    const sec = String(s % 60).padStart(2, "0");
-    return `${m}:${sec}`;
-  };
-
-  const toggleAudio = () => {
-    const track = streamRef.current?.getAudioTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setMyAudioOn(track.enabled);
-    }
-  };
-
-  const toggleVideo = () => {
-    const track = streamRef.current?.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setMyVideoOn(track.enabled);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black flex flex-col">
+    <div className="fixed inset-0 bg-zinc-950 flex flex-col overflow-hidden">
+      {/* Remote Video (Full Screen) */}
+      {remoteVideoOn ? (
+        <video ref={remoteVideoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-white">
+          <img src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`} className="w-32 h-32 rounded-full mb-4 border-2 border-white/10" />
+          <h2 className="text-2xl font-bold">{remoteUsername}</h2>
+          <p className="text-blue-400 animate-pulse mt-2">{status}</p>
+        </div>
+      )}
 
-      {/* Remote Video */}
-      <video
-        ref={remoteVideoRef}
-        autoPlay
-        playsInline
-        className="absolute w-full h-full object-cover"
-      />
+      {/* Local PIP (Top Right) */}
+      <div className="absolute top-6 right-6 w-28 h-40 sm:w-36 sm:h-52 bg-black rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-20">
+        <video ref={myVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${!myVideoOn ? 'hidden' : ''}`} />
+        {!myVideoOn && <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">Video Off</div>}
+      </div>
 
-      {/* Local Video */}
-      <video
-        ref={myVideoRef}
-        autoPlay
-        muted
-        playsInline
-        className="absolute top-6 right-6 w-32 h-40 rounded-xl border border-white/20"
-      />
-
-      <audio ref={remoteAudioRef} autoPlay />
-
-      {/* Top */}
-      <div className="relative z-10 p-4 flex justify-between text-white">
-        <span>{remoteUsername || "Connecting..."}</span>
-        <span>{formatTime(callDuration)}</span>
+      <div className="relative z-10 p-6 flex justify-between items-start pt-14">
+        <div className="bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-semibold">{remoteUsername}</div>
+        <div className="bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full text-white font-mono text-xs">
+          {Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, '0')}
+        </div>
       </div>
 
       {/* Controls */}
-      <div className="mt-auto flex justify-center gap-6 pb-10 z-10">
-        <button onClick={toggleAudio} className="bg-white/20 p-4 rounded-full">
+      <div className="mt-auto flex justify-center items-center gap-8 pb-14 z-30">
+        <button onClick={() => {
+          const t = streamRef.current?.getAudioTracks()[0];
+          if(t) { t.enabled = !t.enabled; setMyAudioOn(t.enabled); }
+        }} className={`p-5 rounded-full transition-all ${myAudioOn ? 'bg-white/10' : 'bg-red-500'} text-white`}>
           {myAudioOn ? "🎤" : "🔇"}
         </button>
 
-        <button
-          onClick={() => {
-            const toId = isAnswering ? incomingCall?.from : id;
-            if (toId) socket.emit("endCall", { to: toId });
-            handleExit();
-          }}
-          className="bg-red-600 p-6 rounded-full"
-        >
-          📞
+        <button onClick={() => { 
+          const toId = isAnswering ? incomingCall?.from : id;
+          if (toId) socket.emit("endCall", { to: toId });
+          handleExit();
+        }} className="p-6 bg-red-600 rounded-3xl text-white shadow-lg shadow-red-600/30 active:scale-90 transition-transform">
+          <span className="text-2xl">📞</span>
         </button>
 
-        <button onClick={toggleVideo} className="bg-white/20 p-4 rounded-full">
+        <button onClick={() => {
+          const t = streamRef.current?.getVideoTracks()[0];
+          if(t) { t.enabled = !t.enabled; setMyVideoOn(t.enabled); }
+        }} className={`p-5 rounded-full transition-all ${myVideoOn ? 'bg-white/10' : 'bg-red-500'} text-white`}>
           {myVideoOn ? "📹" : "🚫"}
         </button>
       </div>
