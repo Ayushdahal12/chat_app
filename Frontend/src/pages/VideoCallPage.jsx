@@ -50,7 +50,7 @@ const VideoCallPage = () => {
       const audio = new Audio(ringSound);
       audio.loop = true;
       ringAudioRef.current = audio;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
     }
     return () => {
       if (ringAudioRef.current) {
@@ -135,28 +135,19 @@ const VideoCallPage = () => {
 
         // ✅ Handle remote tracks — FIXED
         pc.ontrack = (event) => {
-          console.log("🎥 Remote track received:", event.track.kind);
+          console.log("🎥 Track received:", event.track.kind);
 
-          // ✅ Add to stable remoteStream ref
+          // Add track to ONE shared stream
           remoteStreamRef.current.addTrack(event.track);
 
-          if (event.track.kind === "video") {
-            // ✅ Attach to video element
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = remoteStreamRef.current;
-            }
-            setRemoteVideoOn(true);
-            setCallStarted(true);
-            setStatus("Connected");
+          // Attach stream to video
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
           }
 
-          if (event.track.kind === "audio") {
-            // ✅ Attach audio to audio element
-            if (remoteAudioRef.current) {
-              remoteAudioRef.current.srcObject = remoteStreamRef.current;
-              remoteAudioRef.current.volume = 1.0;
-              remoteAudioRef.current.play().catch(e => console.log("Audio play:", e));
-            }
+          // Detect video presence
+          if (event.track.kind === "video") {
+            setRemoteVideoOn(true);
           }
         };
 
@@ -212,7 +203,7 @@ const VideoCallPage = () => {
             );
             // ✅ Flush queued ICE candidates
             for (const c of iceCandidatesQueue.current) {
-              try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { }
             }
             iceCandidatesQueue.current = [];
             const answer = await pc.createAnswer();
@@ -242,7 +233,7 @@ const VideoCallPage = () => {
           );
           // ✅ Flush queued ICE candidates
           for (const c of iceCandidatesQueue.current) {
-            try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+            try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { }
           }
           iceCandidatesQueue.current = [];
           setCallStarted(true);
@@ -305,6 +296,14 @@ const VideoCallPage = () => {
     return `${mins}:${secs}`;
   };
 
+  if (remoteVideoRef.current) {                    // Point to be noted , so please do not change the order of code , if you change the order of code then it will not work
+    remoteVideoRef.current.srcObject = remoteStreamRef.current;
+
+    remoteVideoRef.current.onloadedmetadata = () => {
+      remoteVideoRef.current.play().catch(() => { });
+    };
+  }
+
   return (
     <div className="fixed inset-0 bg-black flex flex-col w-full h-[100dvh]">
 
@@ -314,7 +313,14 @@ const VideoCallPage = () => {
       {/* Remote video */}
       <div className="absolute inset-0">
         {remoteVideoOn ? (
-          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            muted={false}
+            className="w-full h-full object-cover"
+          />
+
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
             <div className="relative mb-4">
