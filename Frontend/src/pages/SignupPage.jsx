@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, User, Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +15,15 @@ const SignupPage = () => {
   const [showExit, setShowExit] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Responsive handling
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const navigate = useNavigate();
 
@@ -70,7 +79,7 @@ const SignupPage = () => {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      padding: "20px",
+      padding: isMobile ? "10px" : "20px",
       background: "#083aa9", 
       fontFamily: "Inter, system-ui, sans-serif"
     }}>
@@ -82,17 +91,17 @@ const SignupPage = () => {
             exit={{ x: "-100vw", opacity: 0 }}
             style={{
               width: "100%",
-              maxWidth: "880px", // Reduced from 1000px
-              minHeight: "540px", // Reduced from 640px
+              maxWidth: isMobile ? "450px" : "880px",
+              minHeight: isMobile ? "auto" : "540px",
               backgroundColor: "#ffffff",
-              borderRadius: "3.5rem",
+              borderRadius: isMobile ? "2rem" : "3.5rem",
               display: "flex",
-              flexDirection: "row",
+              flexDirection: isMobile ? "column" : "row",
               overflow: "hidden",
               boxShadow: "0 30px 70px -15px rgba(0, 0, 0, 0.4)",
             }}
           >
-            {/* LEFT SIDE: BRANDING */}
+            {/* BRANDING SIDE */}
             <div style={{
               flex: 1,
               background: "linear-gradient(180deg, #2563eb 0%, #0a46b3 100%)",
@@ -101,25 +110,32 @@ const SignupPage = () => {
               justifyContent: "center",
               flexDirection: "column",
               color: "white",
-              padding: "30px",
+              padding: isMobile ? "40px 20px" : "30px",
               textAlign: "center"
             }}>
-              <h1 style={{ fontSize: "90px", fontWeight: "900", margin: 0, lineHeight: 0.8, letterSpacing: "-4px" }}>
+              <h1 style={{ 
+                fontSize: isMobile ? "60px" : "90px", 
+                fontWeight: "900", 
+                margin: 0, 
+                lineHeight: 0.8, 
+                letterSpacing: "-4px" 
+              }}>
                 गफ<span style={{ color: "#60a5fa" }}>.</span>
               </h1>
-              <p style={{ fontSize: "16px", marginTop: "20px", fontWeight: "500", opacity: 0.9 }}>
-                Welcome back. <br />
+              <p style={{ 
+                fontSize: isMobile ? "14px" : "16px", 
+                marginTop: "15px", 
+                fontWeight: "500", 
+                opacity: 0.9 
+              }}>
                 Nepal's best chatting app.
-              </p>
-              <p style={{ marginTop: "40px", fontSize: "11px", opacity: 0.5, letterSpacing: "2px", fontWeight: "700" }}>
-                BY AYUSH____
               </p>
             </div>
 
-            {/* RIGHT SIDE: FORM */}
+            {/* FORM SIDE */}
             <div style={{
               flex: 1.1,
-              padding: "40px 50px", // Reduced padding
+              padding: isMobile ? "30px 25px" : "40px 50px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
@@ -185,7 +201,7 @@ const SignupPage = () => {
                 </button>
               </form>
 
-              <div style={{ marginTop: "25px", textAlign: "center" }}>
+              <div style={{ marginTop: "25px", textAlign: "center", marginBottom: isMobile ? "10px" : "0" }}>
                 <span style={{ fontSize: "11px", fontWeight: "800", color: "#9ca3af" }}>
                   ALREADY HAVE AN ACCOUNT?{" "}
                 </span>
@@ -207,6 +223,8 @@ const SignupPage = () => {
     </div>
   );
 };
+
+// ... (Keep labelStyle, buttonStyle, and Input component from your original code)
 
 const labelStyle = {
   display: "block",
