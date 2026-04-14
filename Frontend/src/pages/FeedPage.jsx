@@ -1406,216 +1406,202 @@
 // export default FeedPage;
 
 
-
-
-
-import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../store/useAuthStore";
-import { usePostStore } from "../store/usePostStore";
-import { ArrowLeft, Heart, MessageCircle, X, Plus, Loader2, Trash2, Send, Sparkles, ImagePlus } from "lucide-react";
-
-const CLOUDINARY_CLOUD_NAME = "dhcpaoxx1";
-const CLOUDINARY_UPLOAD_PRESET = "gg5z1art";
+import { useEffect, useState } from "react";
+import axios from "../lib/axios";
+import { Heart, MessageCircle } from "lucide-react";
 
 const FeedPage = () => {
-  const navigate = useNavigate();
-  const { authUser } = useAuthStore();
-  const { posts, isLoading, getFeedPosts, createPost, likePost, commentPost, deletePost } = usePostStore();
-
-  const [showCreate, setShowCreate] = useState(false);
-  const [caption, setCaption] = useState("");
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageUrl, setImageUrl] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [authUser, setAuthUser] = useState(null);
   const [activeComment, setActiveComment] = useState(null);
   const [commentText, setCommentText] = useState("");
-  const [doubleTapPost, setDoubleTapPost] = useState(null);
-  const [likedPosts, setLikedPosts] = useState({});
-  const imageInputRef = useRef(null);
-  const lastTapRef = useRef({});
 
-  useEffect(() => { getFeedPosts(); }, []);
+  // ✅ GET AUTH USER
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await axios.get("/users/me");
+        setAuthUser(res.data);
+      } catch (err) {
+        console.log("User not logged in");
+      }
+    };
+    fetchUser();
+  }, []);
 
-  // --- HELPER FUNCTIONS (Now inside the component) ---
+  // ✅ GET POSTS
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const res = await axios.get("/posts/feed");
+        setPosts(res.data || []);
+      } catch (err) {
+        console.log("Error fetching posts");
+      }
+    };
+    fetchPosts();
+  }, []);
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  const handleUploadAndPost = async () => {
-    if (!imagePreview) return;
-    setIsUploading(true);
+  // ✅ LIKE POST
+  const handleLike = async (postId) => {
     try {
-      const formData = new FormData();
-      formData.append("file", imageInputRef.current?.files[0]);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
-      const data = await res.json();
-      setImageUrl(data.secure_url);
-    } catch (err) { console.log(err); }
-    finally { setIsUploading(false); }
-  };
-
-  const handlePost = async () => {
-    if (!imageUrl) { await handleUploadAndPost(); return; }
-    setIsPosting(true);
-    const res = await createPost(imageUrl, caption);
-    if (res.success) {
-      setShowCreate(false); setCaption(""); setImagePreview(null); setImageUrl("");
-      if (imageInputRef.current) imageInputRef.current.value = "";
+      const res = await axios.put(`/posts/like/${postId}`);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p._id === postId ? { ...p, likes: res.data.likes } : p
+        )
+      );
+    } catch (err) {
+      console.log("Like failed");
     }
-    setIsPosting(false);
   };
 
-  useEffect(() => { if (imagePreview && !imageUrl) handleUploadAndPost(); }, [imagePreview]);
+  // ✅ ADD COMMENT
+  const handleComment = async (postId) => {
+    if (!commentText.trim()) return;
 
-  const handleDoubleTap = (postId) => {
-    const now = Date.now();
-    const lastTap = lastTapRef.current[postId] || 0;
-    if (now - lastTap < 300) {
-      likePost(postId);
-      setDoubleTapPost(postId);
-      setLikedPosts(p => ({ ...p, [postId]: true }));
-      setTimeout(() => setDoubleTapPost(null), 900);
+    try {
+      const res = await axios.post(`/posts/comment/${postId}`, {
+        text: commentText,
+      });
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          p._id === postId
+            ? { ...p, comments: [...(p.comments || []), res.data] }
+            : p
+        )
+      );
+
+      setCommentText("");
+    } catch (err) {
+      console.log("Comment failed");
     }
-    lastTapRef.current[postId] = now;
   };
-
-  const handleLike = (postId, isLiked) => {
-    likePost(postId);
-    setLikedPosts(p => ({ ...p, [postId]: !isLiked }));
-  };
-
-  const formatTime = (date) => {
-    const diff = Math.floor((new Date() - new Date(date)) / 1000);
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    return `${Math.floor(diff / 86400)}d`;
-  };
-
-  // --- RENDERING ---
-
-  if (!authUser) {
-    return <div className="feed-loader"><Loader2 className="animate-spin" /></div>;
-  }
 
   return (
-    <div className="feed-root">
-      <style>{`
-        /* Keep your styles here */
-        .feed-logo span { color: #1960F1; }
-      `}</style>
+    <div className="feed-container">
+      {posts?.map((post) => {
+        // 🔥 CRASH FIX (MAIN)
+        if (!post || !post.userId) return null;
 
-      <header className="feed-header">
-        <div className="feed-header-left">
-          <button className="back-btn" onClick={() => navigate("/")}><ArrowLeft size={18} /></button>
-          <h1 className="feed-logo">गफ <span>Feed</span></h1>
-        </div>
-        <button className="post-btn" onClick={() => setShowCreate(true)}><Plus size={15} /> New Post</button>
-      </header>
+        const isLiked = authUser
+          ? post.likes?.includes(authUser?._id)
+          : false;
 
-      <div className="feed-container">
-        {isLoading ? (
-          <div className="feed-loader"><Loader2 className="animate-spin" /></div>
-        ) : posts.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">📸</div>
-            <p className="empty-title">Nothing here yet</p>
-            <button className="empty-cta" onClick={() => setShowCreate(true)}>Create First Post</button>
-          </div>
-        ) : (
-          posts.map((post, idx) => {
-            // ✅ CRITICAL FIX: Use optional chaining to avoid "reading _id of null"
-            const isLiked = authUser && post.likes ? post.likes.includes(authUser._id) : false;
-            const isMyPost = authUser && post.userId?._id === authUser._id;
+        const isMyPost = authUser
+          ? post.userId?._id === authUser?._id
+          : false;
 
-            // Skip rendering if post user data is missing
-            if (!post.userId) return null;
-
-            return (
-              <div key={post._id} className="post-card" style={{ animationDelay: `${idx * 0.07}s` }}>
-                <div className="post-header">
-                  <div className="post-user">
-                    <img
-                      className="post-avatar"
-                      src={post.userId?.profilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${post.userId?.username}`}
-                      alt="avatar"
-                    />
-                    <div>
-                      <p className="post-username">{post.userId?.username}</p>
-                      <p className="post-time">{formatTime(post.createdAt)}</p>
-                    </div>
-                  </div>
-                  {isMyPost && (
-                    <button className="delete-btn" onClick={() => deletePost(post._id)}><Trash2 size={16} /></button>
-                  )}
-                </div>
-
-                <div className="post-image-wrap" onClick={() => handleDoubleTap(post._id)}>
-                  <img src={post.image} alt="post" />
-                  {doubleTapPost === post._id && (
-                    <div className="heart-burst"><Heart size={90} fill="#e84040" color="#e84040" /></div>
-                  )}
-                </div>
-
-                <div className="post-actions">
-                  <button className={`action-btn ${isLiked ? "liked" : ""}`} onClick={() => handleLike(post._id, isLiked)}>
-                    <Heart size={24} fill={isLiked ? "#e84040" : "none"} color={isLiked ? "#e84040" : "currentColor"} />
-                    <span className="action-count">{post.likes?.length || 0}</span>
-                  </button>
-                  <button className="action-btn" onClick={() => setActiveComment(post._id)}>
-                    <MessageCircle size={24} />
-                    <span className="action-count">{post.comments?.length || 0}</span>
-                  </button>
-                </div>
-
-                <div className="post-body">
-                  {post.caption && (
-                    <p className="post-caption"><strong>{post.userId?.username}</strong> {post.caption}</p>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* CREATE MODAL */}
-      {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="create-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">New Post</h2>
-              <button className="modal-close" onClick={() => setShowCreate(false)}><X size={18} /></button>
-            </div>
-            
-            <input type="file" hidden ref={imageInputRef} onChange={handleImageSelect} accept="image/*" />
-            
-            <div className="upload-zone" onClick={() => imageInputRef.current.click()}>
-              {imagePreview ? <img src={imagePreview} /> : <div className="upload-placeholder"><ImagePlus /> <p>Click to upload</p></div>}
-              {isUploading && <div className="uploading-overlay"><Loader2 className="animate-spin" /><p>Uploading...</p></div>}
+        return (
+          <div key={post._id} className="post-card">
+            {/* USER */}
+            <div className="post-header">
+              <img
+                src={
+                  post.userId?.profilePic ||
+                  `https://api.dicebear.com/7.x/thumbs/svg?seed=${
+                    post.userId?.username || "user"
+                  }`
+                }
+                alt={post.userId?.username || "user"}
+                className="post-avatar"
+              />
+              <p className="post-username">
+                {post.userId?.username || "Unknown"}
+              </p>
             </div>
 
-            <textarea 
-              className="caption-input" 
-              placeholder="Write a caption..." 
-              value={caption} 
-              onChange={(e) => setCaption(e.target.value)}
+            {/* IMAGE */}
+            <img
+              src={post.image}
+              alt="post"
+              className="post-image"
             />
 
-            <button 
-              className="share-btn" 
-              disabled={isUploading || isPosting || !imagePreview} 
-              onClick={handlePost}
+            {/* ACTIONS */}
+            <div className="post-actions">
+              <Heart
+                className={`icon ${isLiked ? "liked" : ""}`}
+                onClick={() => handleLike(post._id)}
+              />
+              <MessageCircle
+                className="icon"
+                onClick={() => setActiveComment(post._id)}
+              />
+            </div>
+
+            {/* LIKES */}
+            <p className="post-likes">
+              {post.likes?.length || 0} likes
+            </p>
+
+            {/* CAPTION */}
+            <p className="post-caption">
+              <strong>
+                {post.userId?.username || "Unknown"}
+              </strong>{" "}
+              {post.caption}
+            </p>
+
+            {/* COMMENTS PREVIEW */}
+            <p
+              className="view-comments"
+              onClick={() => setActiveComment(post._id)}
             >
-              {isPosting ? <Loader2 className="animate-spin" /> : "Share Post"}
+              View {post.comments?.length || 0} comments
+            </p>
+
+            {/* OPTIONAL DEBUG */}
+            {isMyPost && (
+              <p className="text-green-400 text-xs">
+                Your post
+              </p>
+            )}
+          </div>
+        );
+      })}
+
+      {/* COMMENT MODAL */}
+      {activeComment && (
+        <div className="comment-modal">
+          <div className="comment-box">
+            <h3>
+              Comments (
+              {posts.find((p) => p._id === activeComment)?.comments
+                ?.length || 0}
+              )
+            </h3>
+
+            <div className="comment-list">
+              {posts
+                .find((p) => p._id === activeComment)
+                ?.comments?.map((c, i) => (
+                  <div key={i} className="comment-item">
+                    <strong>{c.username}</strong> {c.text}
+                  </div>
+                ))}
+            </div>
+
+            <div className="comment-input">
+              <input
+                type="text"
+                placeholder="Write a comment..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+              />
+              <button
+                onClick={() => handleComment(activeComment)}
+              >
+                Send
+              </button>
+            </div>
+
+            <button
+              className="close-btn"
+              onClick={() => setActiveComment(null)}
+            >
+              Close
             </button>
           </div>
         </div>
