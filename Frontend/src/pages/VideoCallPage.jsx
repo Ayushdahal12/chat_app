@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useSocketStore } from "../store/useSocketStore";
+import { useMessageStore } from "../store/useMessageStore";
 import { useAuthStore } from "../store/useAuthStore";
 import axiosInstance from "../lib/axios";
 
@@ -23,6 +24,7 @@ const VideoCallPage = () => {
   
   const { socket, incomingCall, clearIncomingCall } = useSocketStore();
   const { authUser } = useAuthStore();
+  const { sendMessage } = useMessageStore();
 
   const [callDuration, setCallDuration] = useState(0);
   const [remoteUsername, setRemoteUsername] = useState("");
@@ -209,11 +211,12 @@ const VideoCallPage = () => {
   const handleExit = async () => {
     const finalTime = durationRef.current;
     try {
-      await axiosInstance.post(`/messages/send/${id}`, {
-        text: "Video Call",
-        type: finalTime > 0 ? "call_ended" : "call_missed",
-        callDuration: finalTime
-      });
+      await sendMessage(
+        id,
+        "Video Call",
+        finalTime > 0 ? "call_ended" : "call_missed",
+        finalTime
+      );
     } finally {
       navigate(`/chat/${id}`);
     }
