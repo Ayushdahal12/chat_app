@@ -27,12 +27,14 @@ export const createPost = async (req, res) => {
 
 export const getFeedPosts = async (req, res) => {
   try {
-    // ✅ FILTER NULL USER POSTS (MAIN FIX)
     const posts = await Post.find({ userId: { $ne: null } })
       .populate("userId", "username profilePic")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(posts);
+    // Filter out posts where populate returned null
+    const validPosts = posts.filter(post => post.userId !== null);
+
+    res.status(200).json(validPosts);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
