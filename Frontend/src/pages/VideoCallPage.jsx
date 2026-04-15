@@ -325,8 +325,7 @@ const VideoCallPage = () => {
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            muted
-            // muted={false}
+            muted={false}
 
             className="w-full h-full object-cover"
           />
