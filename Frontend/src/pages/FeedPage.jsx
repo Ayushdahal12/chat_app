@@ -257,7 +257,7 @@ const FeedPage = () => {
               </button>
             </div>
           ) : (
-            posts.map((post, idx) => {
+            posts.filter(post => post.userId != null).map((post, idx) => {
               // Robust null checks to prevent runtime errors
               if (!post || !post._id || !post.user || !post.user._id) {
                 console.warn("Skipping post due to missing data:", post);
