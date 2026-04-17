@@ -4,9 +4,14 @@ import jwt from "jsonwebtoken";
 // import { sendOTPEmail } from "../utils/mailer.js";
 
 const generateToken = (userId, res) => {
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
+  const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  res.cookie("jwt", token, {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: "none",
+    secure: true, // ✅ required for cross-origin
   });
+
 
   const isProduction = process.env.NODE_ENV === "production";
 
