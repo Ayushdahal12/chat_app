@@ -110,7 +110,10 @@ const VideoCallPage = () => {
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
-      remoteVideoRef.current.play().catch(() => { });
+      console.log("▶️ Attempting to play remote video");
+      remoteVideoRef.current.play().catch((err) => {
+        console.error("❌ Failed to play remote video:", err);
+      });
     }
   }, [remoteVideoOn]);
 
@@ -206,9 +209,15 @@ const VideoCallPage = () => {
             remoteStreamRef.current.addTrack(event.track);
           }
 
-          // Attach ONLY ONCE
+          // ✅ Attach remote stream to BOTH video and audio elements
           if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            console.log("📺 Remote video attached");
+          }
+          
+          if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
+            remoteAudioRef.current.srcObject = remoteStreamRef.current;
+            console.log("🔊 Remote audio attached");
           }
 
           if (event.track.kind === "video") {
@@ -381,16 +390,14 @@ const VideoCallPage = () => {
 
       {/* Remote video */}
       <div className="absolute inset-0">
-        {remoteVideoOn ? (
+        {remoteVideoOn && remoteVideoRef.current?.srcObject?.getVideoTracks().length > 0 ? (
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
             muted={false}
-
             className="w-full h-full object-cover"
           />
-
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
             <div className="relative mb-4">
