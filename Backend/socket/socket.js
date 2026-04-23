@@ -13,7 +13,13 @@ const io = new Server(server, {
   },
   transports: ["websocket", "polling"],
   pingTimeout: 60000,
-  pingInterval: 25000,
+  pingInterval: 15000,  // ✅ Increased frequency for better cross-network stability
+  maxHttpBufferSize: 5e6,  // ✅ 5MB for large WebRTC offers/answers
+  serveClient: false,
+  allowUpgrades: true,
+  cookie: false,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
 });
 
 // ✅ Store online users — userId: socketId

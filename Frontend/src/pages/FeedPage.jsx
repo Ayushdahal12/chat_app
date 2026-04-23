@@ -208,6 +208,28 @@ const FeedPage = () => {
         .send-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--ink); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; transition: all 0.2s; }
         .send-btn:hover:not(:disabled) { background: var(--accent); transform: scale(1.1); }
         .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        /* ✅ Skeleton loaders */
+        .skeleton-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow: hidden; animation: fadeUp 0.4s ease both; }
+        .skeleton-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+        .skeleton-avatar { width: 42px; height: 42px; border-radius: 14px; background: var(--paper-2); flex-shrink: 0; }
+        .skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .skeleton-line { height: 12px; background: var(--paper-2); border-radius: 6px; }
+        .skeleton-image { width: 100%; aspect-ratio: 1/1; background: var(--paper-2); }
+        .skeleton-footer { padding: 12px 16px; display: flex; gap: 16px; }
+        .skeleton-action { width: 60px; height: 20px; background: var(--paper-2); border-radius: 4px; }
+        
+        /* ✅ Shimmer animation for skeleton loaders */
+        .shimmer {
+          background: linear-gradient(90deg, var(--paper-2) 0%, #ffffff 50%, var(--paper-2) 100%);
+          background-size: 200% 100%;
+          animation: shimmerWave 2s infinite;
+        }
+        
+        @keyframes shimmerWave {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
 
       <div className="feed-root">

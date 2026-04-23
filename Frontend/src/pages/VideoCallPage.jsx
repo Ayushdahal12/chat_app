@@ -12,6 +12,32 @@ const Icon = ({ path, className = "w-6 h-6", color = "currentColor" }) => (
 const METERED_API_KEY = "2f6dd2408e5bd09a1b55e685412564098b23";
 const METERED_URL = `https://guff-app.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
 
+// ✅ Fallback TURN servers for maximum reliability
+const FALLBACK_TURN_SERVERS = [
+  { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+];
+
+// ✅ Fetch TURN credentials with fallback
+const fetchTurnServers = async () => {
+  try {
+    console.log("🔄 Fetching primary TURN credentials...");
+    const turnRes = await fetch(METERED_URL, { timeout: 5000 });
+    if (!turnRes.ok) throw new Error("Primary TURN fetch failed");
+    const iceServersResp = await turnRes.json();
+    const primaryServers = Array.isArray(iceServersResp) ? iceServersResp : iceServersResp.iceServers || [];
+    console.log("✅ Primary TURN servers:", primaryServers.length);
+    return [...primaryServers, ...FALLBACK_TURN_SERVERS];
+  } catch (err) {
+    console.warn("⚠️  Primary TURN failed, using fallback servers:", err.message);
+    return FALLBACK_TURN_SERVERS;
+  }
+};
+
 const VideoCallPage = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -111,31 +137,37 @@ const VideoCallPage = () => {
 
     const init = async () => {
       try {
-        // ✅ Fetch TURN credentials
-        console.log("🔄 Fetching TURN credentials...");
-        const turnRes = await fetch(METERED_URL);
-        const iceServersResp = await turnRes.json();
+        // ✅ Fetch TURN credentials with fallback
+        const iceServers = await fetchTurnServers();
 
-        const iceServers = Array.isArray(iceServersResp)
-          ? iceServersResp
-          : iceServersResp.iceServers || [];
-
-        // ✅ Get media
+        // ✅ Get media with optimized constraints
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: { 
+            facingMode: "user",
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 24, max: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            latency: { ideal: 40 }
+          },
         });
         streamRef.current = stream;
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
         console.log("🎤 Audio tracks:", stream.getAudioTracks().length);
         console.log("🎥 Video tracks:", stream.getVideoTracks().length);
 
-        // ✅ Create peer connection
+        // ✅ Create peer connection with optimized settings
         const pc = new RTCPeerConnection({
-          iceServers: Array.isArray(iceServers) ? iceServers : [],
-          iceCandidatePoolSize: 10,
+          iceServers: iceServers,
+          iceCandidatePoolSize: 100,  // ✅ Much larger pool for cross-network
           bundlePolicy: "max-bundle",
           rtcpMuxPolicy: "require",
+          iceTransportPolicy: "all",  // ✅ Try all candidates (host, srflx, relay)
+          enableRtpDataChannels: false,
         });
         pcRef.current = pc;
 
@@ -145,7 +177,24 @@ const VideoCallPage = () => {
           pc.addTrack(track, stream);
         });
 
-        // ✅ Handle remote tracks — FIXED
+        // ✅ Optimize codec preferences
+        if (RTCRtpSender.getCapabilities) {
+          const videoCapabilities = RTCRtpSender.getCapabilities('video')?.codecs || [];
+          const audioCapabilities = RTCRtpSender.getCapabilities('audio')?.codecs || [];
+          
+          // Prefer VP9 > VP8 > H264 for video
+          const videoCodecs = videoCapabilities.filter(c => 
+            c.mimeType.includes('video/') && !c.mimeType.includes('rtx')
+          ).sort((a, b) => {
+            const priority = { 'vp9': 0, 'vp8': 1, 'h264': 2 };
+            return (priority[a.mimeType.split('/')[1].split('-')[0].toLowerCase()] || 999) -
+                   (priority[b.mimeType.split('/')[1].split('-')[0].toLowerCase()] || 999);
+          });
+          
+          console.log("🎥 Available video codecs:", videoCodecs.map(c => c.mimeType));
+        }
+
+        // ✅ Handle remote tracks
         pc.ontrack = (event) => {
           console.log("🎥 Track received:", event.track.kind);
 
@@ -188,14 +237,26 @@ const VideoCallPage = () => {
           if (pc.iceConnectionState === "failed") {
             console.log("❌ ICE failed — restarting");
             pc.restartIce();
+            setStatus("Reconnecting...");
           }
           if (pc.iceConnectionState === "disconnected") {
             setStatus("Reconnecting...");
+            // Aggressive reconnect after 5 seconds
+            setTimeout(() => {
+              if (pcRef.current?.iceConnectionState === "disconnected") {
+                console.log("⚠️ Restarting ICE due to prolonged disconnection");
+                pc.restartIce();
+              }
+            }, 5000);
           }
         };
 
         pc.onconnectionstatechange = () => {
           console.log("🔗 Connection:", pc.connectionState);
+          if (pc.connectionState === "failed") {
+            console.log("❌ Connection failed — attempting restart");
+            pc.restartIce();
+          }
         };
 
         // ✅ Caller — send offer

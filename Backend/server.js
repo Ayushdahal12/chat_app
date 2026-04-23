@@ -21,9 +21,13 @@ const PORT = process.env.PORT || 10000;
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://guff.ayushdahal.info.np"
+    "https://guff.ayushdahal.info.np",
+    process.env.FRONTEND_URL || "https://guff.ayushdahal.info.np"
   ],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200,
 }));
 
 // ✅ Handle preflight
