@@ -11,39 +11,36 @@ export const useSocketStore = create((set, get) => ({
   incomingCall: null,
 
   connectSocket: (userId) => {
-    if (get().socket?.connected) return;
+    // ✅ Don't reconnect if already connected
+    if (get().socket?.connected) {
+      console.log("✓ Socket already connected");
+      return;
+    }
 
     const socket = io(SOCKET_URL, {
       query: { userId },
       withCredentials: true,
-      transports: ["polling", "websocket"], // ✅ polling first
+      transports: ["websocket", "polling"],  // ✅ websocket first for better performance
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 5,  // ✅ Limit reconnection attempts
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000,
+      timeout: 10000,
     });
 
     socket.on("connect", () => {
-      console.log("✅ Socket connected!", socket.id);
+      console.log("✅ Socket connected:", socket.id);
     });
 
     socket.on("connect_error", (err) => {
-      console.log("❌ Socket error:", err.message);
+      console.warn("⚠️ Socket error:", err.message);
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("⚠️ Socket disconnected:", reason);
-      // Reconnect with userId
-      if (reason === "transport close" || reason === "transport error") {
-        setTimeout(() => {
-          socket.connect();
-        }, 2000);
-      }
+      console.log("Socket disconnected:", reason);
     });
 
     socket.on("getOnlineUsers", (users) => {
-      console.log("Online users:", users);
       set({ onlineUsers: users });
     });
 

@@ -86,17 +86,26 @@ export const useAuthStore = create((set) => ({
       console.log("🔍 Checking auth status...");
       const res = await axiosInstance.get("/users/me", {
         withCredentials: true,
+        timeout: 5000,  // 5 second timeout
       });
 
       console.log("✅ Auth check successful:", res.data.username);
       set({ authUser: res.data });
 
+      // Connect socket only if user is authenticated
       useSocketStore.getState().connectSocket(res.data._id);
     } catch (err) {
-      console.log("⚠️ Not authenticated:", err.response?.status);
+      // 401 is expected when user is not logged in - don't treat as error
+      if (err.response?.status === 401) {
+        console.log("✓ User not authenticated (expected on first load)");
+      } else if (err.code === "ECONNABORTED") {
+        console.warn("⚠️ Auth check timeout - backend might be slow");
+      } else {
+        console.warn("⚠️ Auth check failed:", err.message);
+      }
       set({ authUser: null });
     } finally {
-      set({ isCheckingAuth: false });  // ✅ Stop loading after check
+      set({ isCheckingAuth: false });  // ✅ Always stop loading
     }
   },
 }));
