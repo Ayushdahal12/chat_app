@@ -5,22 +5,17 @@ import jwt from "jsonwebtoken";
 
 const generateToken = (userId, res) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.cookie("jwt", token, {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: "none",
-    secure: true, // ✅ required for cross-origin
-  });
-
-
+  
   const isProduction = process.env.NODE_ENV === "production";
 
+  // ✅ Set cookie once with proper settings
   res.cookie("jwt", token, {
     httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: isProduction ? "none" : "lax", // ✅ lax for localhost
-    secure: isProduction ? true : false,      // ✅ false for localhost
+    secure: isProduction ? true : false,      // false for localhost, true for HTTPS
+    sameSite: isProduction ? "none" : "lax",  // "none" for cross-origin, "lax" for localhost
+    maxAge: 7 * 24 * 60 * 60 * 1000,          // 7 days
     path: "/",
+    domain: isProduction ? undefined : undefined, // Let browser handle domain
   });
 };
 
@@ -106,21 +101,30 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password)
+    if (!email || !password) {
+      console.log("❌ Login failed: Missing email or password");
       return res.status(400).json({ message: "All fields required" });
+    }
 
     const user = await User.findOne({ email });
-    if (!user)
+    if (!user) {
+      console.log("❌ Login failed: User not found -", email);
       return res.status(400).json({ message: "Invalid credentials" });
+    }
 
-    if (!user.isVerified)
+    if (!user.isVerified) {
+      console.log("❌ Login failed: User not verified -", email);
       return res.status(400).json({ message: "Please verify your email first!" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+    if (!isMatch) {
+      console.log("❌ Login failed: Invalid password -", email);
       return res.status(400).json({ message: "Invalid credentials" });
+    }
 
     generateToken(user._id, res);
+    console.log("✅ Login successful:", email);
 
     res.status(200).json({
       _id: user._id,
@@ -130,16 +134,23 @@ export const login = async (req, res) => {
       interests: user.interests,
     });
   } catch (err) {
+    console.error("🔴 Login error:", err.message);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
 export const logout = (req, res) => {
+  // ✅ Clear cookie with proper settings
+  const isProduction = process.env.NODE_ENV === "production";
+  
   res.cookie("jwt", "", {
+    httpOnly: true,
+    secure: isProduction ? true : false,
+    sameSite: isProduction ? "none" : "lax",
     maxAge: 0,
-    sameSite: "none",
-    secure: true,
+    path: "/",
   });
+  
   res.status(200).json({ message: "Logged out successfully" });
 };
 

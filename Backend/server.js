@@ -25,9 +25,11 @@ app.use(cors({
     process.env.FRONTEND_URL || "https://guff.ayushdahal.info.np"
   ],
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Authorization"],
   optionsSuccessStatus: 200,
+  maxAge: 86400, // 24 hours
 }));
 
 // ✅ Handle preflight
