@@ -110,10 +110,15 @@ const VideoCallPage = () => {
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
-      console.log("▶️ Attempting to play remote video");
-      remoteVideoRef.current.play().catch((err) => {
-        console.error("❌ Failed to play remote video:", err);
-      });
+      // ✅ Add delay for video buffer before playing (4-5 seconds)
+      const playTimeout = setTimeout(() => {
+        console.log("▶️ Attempting to play remote video after delay");
+        remoteVideoRef.current?.play().catch((err) => {
+          console.error("❌ Failed to play remote video:", err);
+        });
+      }, 4500);
+      
+      return () => clearTimeout(playTimeout);
     }
   }, [remoteVideoOn]);
 
@@ -221,7 +226,11 @@ const VideoCallPage = () => {
           }
 
           if (event.track.kind === "video") {
-            setRemoteVideoOn(true);
+            // ✅ Wait 4-5 seconds for video to buffer and stabilize before showing
+            setTimeout(() => {
+              console.log("🎥 Showing remote video after buffer delay");
+              setRemoteVideoOn(true);
+            }, 4500);
           }
         };
 
@@ -250,13 +259,13 @@ const VideoCallPage = () => {
           }
           if (pc.iceConnectionState === "disconnected") {
             setStatus("Reconnecting...");
-            // Aggressive reconnect after 5 seconds
+            // ✅ Increased reconnect timeout to 4-5 seconds for better stability
             setTimeout(() => {
               if (pcRef.current?.iceConnectionState === "disconnected") {
                 console.log("⚠️ Restarting ICE due to prolonged disconnection");
                 pc.restartIce();
               }
-            }, 5000);
+            }, 4500);
           }
         };
 
