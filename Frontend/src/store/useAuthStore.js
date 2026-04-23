@@ -35,20 +35,29 @@ export const useAuthStore = create((set) => ({
   login: async (data) => {
     set({ isLoading: true });
     try {
+      console.log("🔐 Attempting login for:", data.email);
       const res = await axiosInstance.post("/auth/login", data, {
-        withCredentials: true, // 🔥 IMPORTANT
+        withCredentials: true,
       });
 
+      console.log("✅ Login response:", res.data);
       set({ authUser: res.data });
 
+      console.log("📡 Connecting socket with userId:", res.data._id);
       useSocketStore.getState().connectSocket(res.data._id);
 
+      console.log("✅ Login successful - authUser set");
       return { success: true };
     } catch (err) {
+      console.error("❌ Login error:", {
+        status: err.response?.status,
+        message: err.response?.data?.message,
+        fullError: err.message,
+      });
       return {
         success: false,
         message:
-          err.response?.data?.message || "Login failed",
+          err.response?.data?.message || err.message || "Login failed",
       };
     } finally {
       set({ isLoading: false });

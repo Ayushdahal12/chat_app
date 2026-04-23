@@ -24,6 +24,9 @@ axiosInstance.interceptors.request.use((config) => {
   // ✅ Add to Authorization header as backup (for incognito mode)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log("🔐 Token found in cookie, adding to Authorization header");
+  } else {
+    console.log("⚠️ No token found in cookies for request:", config.url);
   }
   
   // ✅ Ensure Content-Type is set
@@ -31,8 +34,19 @@ axiosInstance.interceptors.request.use((config) => {
     config.headers["Content-Type"] = "application/json";
   }
   
+  console.log("📤 Request:", {
+    method: config.method,
+    url: config.url,
+    hasToken: !!token,
+    headers: {
+      Authorization: config.headers.Authorization ? "Present" : "Missing",
+      "Content-Type": config.headers["Content-Type"],
+    },
+  });
+  
   return config;
 }, (error) => {
+  console.error("❌ Request interceptor error:", error);
   return Promise.reject(error);
 });
 
