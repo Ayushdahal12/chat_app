@@ -110,15 +110,10 @@ const VideoCallPage = () => {
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
-      // ✅ Add delay for video buffer before playing (4-5 seconds)
-      const playTimeout = setTimeout(() => {
-        console.log("▶️ Attempting to play remote video after delay");
-        remoteVideoRef.current?.play().catch((err) => {
-          console.error("❌ Failed to play remote video:", err);
-        });
-      }, 4500);
-      
-      return () => clearTimeout(playTimeout);
+      console.log("▶️ Attempting to play remote video");
+      remoteVideoRef.current.play().catch((err) => {
+        console.error("❌ Failed to play remote video:", err);
+      });
     }
   }, [remoteVideoOn]);
 
@@ -152,8 +147,8 @@ const VideoCallPage = () => {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "user",
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
             frameRate: { ideal: 24, max: 30 }
           },
           audio: {
@@ -227,11 +222,9 @@ const VideoCallPage = () => {
           }
 
           if (event.track.kind === "video") {
-            // ✅ Wait 4-5 seconds for video to buffer and stabilize before showing
-            setTimeout(() => {
-              console.log("🎥 Showing remote video after buffer delay");
-              setRemoteVideoOn(true);
-            }, 4500);
+            // ✅ Display video immediately when track arrives
+            console.log("🎥 Video track ready, displaying now");
+            setRemoteVideoOn(true);
           }
         };
 
@@ -405,7 +398,7 @@ const VideoCallPage = () => {
 
       {/* Remote video */}
       <div className="absolute inset-0">
-        {remoteVideoOn && remoteVideoRef.current?.srcObject?.getVideoTracks().length > 0 ? (
+        {remoteVideoOn && remoteVideoRef.current?.srcObject ? (
           <video
             ref={remoteVideoRef}
             autoPlay
