@@ -47,13 +47,17 @@ axiosInstance.interceptors.request.use((config) => {
 
 // ✅ Response interceptor: Handle errors gracefully
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // ✅ Log if we received a Set-Cookie header
+    if (response.headers['set-cookie']) {
+      console.log("🍪 Set-Cookie header received!");
+    }
+    return response;
+  },
   (error) => {
     // ✅ Log error for debugging
     if (error.response?.status === 401) {
       console.warn("⚠️ Unauthorized (401) - User not authenticated");
-      // ❌ DO NOT redirect here - let the app handle it
-      // This is normal during getMe() on first load
     } else if (error.response?.status === 400) {
       console.warn("❌ Bad Request (400):", error.response.data?.message);
     } else if (error.response?.status === 500) {

@@ -6,16 +6,21 @@ import jwt from "jsonwebtoken";
 const generateToken = (userId, res) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
   
-  const isProduction = process.env.NODE_ENV === "production";
+  // ✅ Detect production by checking if we're NOT on localhost
+  const isProduction = process.env.NODE_ENV === "production" || 
+                       (process.env.RENDER === "true") ||
+                       !process.env.PORT?.includes("localhost");
+
+  console.log("🔐 Cookie settings:", { isProduction, NODE_ENV: process.env.NODE_ENV, RENDER: process.env.RENDER });
 
   // ✅ Set cookie once with proper settings
   res.cookie("jwt", token, {
     httpOnly: true,
-    secure: isProduction ? true : false,      // false for localhost, true for HTTPS
-    sameSite: isProduction ? "none" : "lax",  // "none" for cross-origin, "lax" for localhost
+    secure: true,  // ✅ ALWAYS true for Render (always HTTPS)
+    sameSite: "none",  // ✅ ALWAYS "none" to allow cross-site
     maxAge: 7 * 24 * 60 * 60 * 1000,          // 7 days
     path: "/",
-    domain: isProduction ? undefined : undefined, // Let browser handle domain
+    // domain: undefined, // Let browser handle - don't specify domain
   });
 };
 
@@ -140,13 +145,11 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-  // ✅ Clear cookie with proper settings
-  const isProduction = process.env.NODE_ENV === "production";
-  
+  // ✅ Clear cookie with EXACT same settings as generateToken
   res.cookie("jwt", "", {
     httpOnly: true,
-    secure: isProduction ? true : false,
-    sameSite: isProduction ? "none" : "lax",
+    secure: true,  // ✅ ALWAYS true for Render
+    sameSite: "none",  // ✅ ALWAYS "none" for cross-site
     maxAge: 0,
     path: "/",
   });
