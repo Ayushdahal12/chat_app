@@ -175,6 +175,7 @@ const VideoCallPage = () => {
           bundlePolicy: "max-bundle",
           rtcpMuxPolicy: "require",
           iceTransportPolicy: "all",  // ✅ Try all candidates (host, srflx, relay)
+          iceGatheringTimeout: 10000,  // ✅ Give more time for ICE gathering
           enableRtpDataChannels: false,
         });
         pcRef.current = pc;
@@ -246,26 +247,31 @@ const VideoCallPage = () => {
         };
 
         // ✅ Connection state logging
+        let disconnectTimeout = null;
         pc.oniceconnectionstatechange = () => {
           console.log("🧊 ICE state:", pc.iceConnectionState);
-          if (pc.iceConnectionState === "connected") {
+          if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
             setStatus("Connected");
             setCallStarted(true);
+            // Clear any pending disconnect timeout
+            if (disconnectTimeout) clearTimeout(disconnectTimeout);
           }
           if (pc.iceConnectionState === "failed") {
             console.log("❌ ICE failed — restarting");
+            if (disconnectTimeout) clearTimeout(disconnectTimeout);
             pc.restartIce();
             setStatus("Reconnecting...");
           }
           if (pc.iceConnectionState === "disconnected") {
             setStatus("Reconnecting...");
-            // ✅ Increased reconnect timeout to 4-5 seconds for better stability
-            setTimeout(() => {
+            // ✅ Wait 8-10 seconds before restarting ICE (long timeout to avoid false disconnects)
+            if (disconnectTimeout) clearTimeout(disconnectTimeout);
+            disconnectTimeout = setTimeout(() => {
               if (pcRef.current?.iceConnectionState === "disconnected") {
-                console.log("⚠️ Restarting ICE due to prolonged disconnection");
+                console.log("⚠️ Restarting ICE due to prolonged disconnection (8+ seconds)");
                 pc.restartIce();
               }
-            }, 4500);
+            }, 8000);
           }
         };
 
