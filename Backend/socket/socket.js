@@ -12,8 +12,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
-  pingTimeout: 60000,
-  pingInterval: 15000,  // ✅ Increased frequency for better cross-network stability
+  pingTimeout: 120000,  // ✅ Increased to 120s to prevent false disconnects
+  pingInterval: 25000,  // ✅ Increased frequency for better stability (25s)
   maxHttpBufferSize: 5e6,  // ✅ 5MB for large WebRTC offers/answers
   serveClient: false,
   allowUpgrades: true,
