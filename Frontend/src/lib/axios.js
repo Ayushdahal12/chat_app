@@ -21,9 +21,17 @@ axiosInstance.interceptors.request.use((config) => {
     .find((row) => row.startsWith("jwt="))
     ?.split("=")[1];
   
+  // 🔥 DEBUG: Log token and request details
+  console.log(`📤 [${config.method?.toUpperCase()}] ${config.url}`);
+  console.log(`   Cookie jwt token: ${token ? "✅ Found" : "❌ NOT FOUND"}`);
+  console.log(`   All cookies: ${document.cookie}`);
+  
   // ✅ Add to Authorization header as backup (for incognito mode)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log(`   Authorization header: Bearer ${token.substring(0, 20)}...`);
+  } else {
+    console.log(`   ⚠️ No token - only sending cookies`);
   }
   
   // ✅ Ensure Content-Type is set
