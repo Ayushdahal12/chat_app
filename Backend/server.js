@@ -22,6 +22,7 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://guff.ayushdahal.info.np",
+    "https://chat-app-z2ay.onrender.com",  // ✅ Add Render frontend domain
     process.env.FRONTEND_URL || "https://guff.ayushdahal.info.np"
   ],
   credentials: true,
