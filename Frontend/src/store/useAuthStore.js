@@ -5,6 +5,7 @@ import { useSocketStore } from "./useSocketStore";
 export const useAuthStore = create((set) => ({
   authUser: null,
   isLoading: false,
+  isCheckingAuth: true,  // ✅ Added: prevent multiple getMe() calls
 
   // ✅ SIGNUP
   signup: async (data) => {
@@ -80,16 +81,22 @@ export const useAuthStore = create((set) => ({
 
   // ✅ GET CURRENT USER
   getMe: async () => {
+    set({ isCheckingAuth: true });
     try {
+      console.log("🔍 Checking auth status...");
       const res = await axiosInstance.get("/users/me", {
-        withCredentials: true, // 🔥 IMPORTANT
+        withCredentials: true,
       });
 
+      console.log("✅ Auth check successful:", res.data.username);
       set({ authUser: res.data });
 
       useSocketStore.getState().connectSocket(res.data._id);
     } catch (err) {
+      console.log("⚠️ Not authenticated:", err.response?.status);
       set({ authUser: null });
+    } finally {
+      set({ isCheckingAuth: false });  // ✅ Stop loading after check
     }
   },
 }));

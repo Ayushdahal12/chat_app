@@ -19,9 +19,10 @@ import FeedPage from "./pages/FeedPage";
 function App() {
   const { authUser, getMe, isCheckingAuth } = useAuthStore();
 
+  // ✅ FIXED: Run getMe() only once on mount
   useEffect(() => {
     getMe();
-  }, [getMe]);
+  }, []); // Empty dependency array - run ONLY ONCE on component mount
 
   // Use your store's loading state for a cleaner look
   if (isCheckingAuth && !authUser) {
