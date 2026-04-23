@@ -115,7 +115,7 @@ const VideoCallPage = () => {
         console.error("❌ Failed to play remote video:", err);
       });
     }
-  }, [remoteVideoOn]);
+  }, [remoteVideoOn, remoteStreamRef.current?.getTracks().length]);
 
   // ✅ Fetch remote user
   useEffect(() => {
@@ -214,6 +214,10 @@ const VideoCallPage = () => {
           if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
             console.log("📺 Remote video attached");
+            // ✅ CRITICAL FIX: Force play on desktop
+            setTimeout(() => {
+              remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked:", e));
+            }, 100);
           }
           
           if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
@@ -398,13 +402,19 @@ const VideoCallPage = () => {
 
       {/* Remote video */}
       <div className="absolute inset-0">
-        {remoteVideoOn && remoteVideoRef.current?.srcObject ? (
+        {remoteVideoRef.current?.srcObject && remoteVideoRef.current.srcObject.getVideoTracks().length > 0 ? (
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
             muted={false}
-            className="w-full h-full object-cover"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            onCanPlay={() => {
+              console.log("✅ Remote video playing");
+              if (remoteVideoRef.current) {
+                remoteVideoRef.current.play().catch(err => console.error("Play error:", err));
+              }
+            }}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
