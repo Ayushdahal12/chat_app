@@ -108,15 +108,6 @@ const VideoCallPage = () => {
     return () => clearInterval(interval);
   }, [callStarted]);
 
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteVideoRef.current.srcObject) {
-      console.log("▶️ Attempting to play remote video");
-      remoteVideoRef.current.play().catch((err) => {
-        console.error("❌ Failed to play remote video:", err);
-      });
-    }
-  }, [remoteVideoOn, remoteStreamRef.current?.getTracks().length]);
-
   // ✅ Fetch remote user
   useEffect(() => {
     const fetchUser = async () => {
@@ -214,10 +205,8 @@ const VideoCallPage = () => {
           if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
             console.log("📺 Remote video attached");
-            // ✅ CRITICAL FIX: Force play on desktop
-            setTimeout(() => {
-              remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked:", e));
-            }, 100);
+            // ✅ CRITICAL FIX: Force play on desktop with proper timing
+            remoteVideoRef.current.play().catch(e => console.warn("Auto-play blocked:", e));
           }
           
           if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
@@ -228,6 +217,7 @@ const VideoCallPage = () => {
           if (event.track.kind === "video") {
             // ✅ Display video immediately when track arrives
             console.log("🎥 Video track ready, displaying now");
+            console.log("📊 Video tracks available:", remoteStreamRef.current.getVideoTracks().length);
             setRemoteVideoOn(true);
           }
         };
@@ -402,22 +392,30 @@ const VideoCallPage = () => {
 
       {/* Remote video */}
       <div className="absolute inset-0">
-        {remoteVideoRef.current?.srcObject && remoteVideoRef.current.srcObject.getVideoTracks().length > 0 ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            muted={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onCanPlay={() => {
-              console.log("✅ Remote video playing");
-              if (remoteVideoRef.current) {
-                remoteVideoRef.current.play().catch(err => console.error("Play error:", err));
-              }
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900">
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          muted={false}
+          style={{ 
+            width: "100%", 
+            height: "100%", 
+            objectFit: "cover",
+            display: remoteVideoOn ? "block" : "none"
+          }}
+          onCanPlay={() => {
+            console.log("✅ Remote video playing");
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.play().catch(err => console.error("Play error:", err));
+            }
+          }}
+          onLoadedMetadata={() => {
+            console.log("✅ Video metadata loaded, enforcing play");
+            remoteVideoRef.current?.play().catch(err => console.error("Play after metadata:", err));
+          }}
+        />
+        {!remoteVideoOn && (
+          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-zinc-900">
             <div className="relative mb-4">
               <img
                 src={remoteProfilePic || `https://api.dicebear.com/7.x/thumbs/svg?seed=${remoteUsername}`}
