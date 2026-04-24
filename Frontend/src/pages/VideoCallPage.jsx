@@ -70,6 +70,18 @@ const VideoCallPage = () => {
   // ✅ Sync duration ref
   useEffect(() => { durationRef.current = callDuration; }, [callDuration]);
 
+  // ✅ Ensure video plays when state changes
+  useEffect(() => {
+    if (remoteVideoOn && remoteVideoRef.current) {
+      console.log("🎬 remoteVideoOn changed to TRUE - ensuring play");
+      setTimeout(() => {
+        remoteVideoRef.current?.play()
+          .then(() => console.log("✅ Video playing after state change"))
+          .catch(e => console.warn("⚠️  Play after state change failed:", e));
+      }, 100);
+    }
+  }, [remoteVideoOn]);
+
   // ✅ Ring sound for caller only
   useEffect(() => {
     if (!isAnswering && !callStarted) {
@@ -192,32 +204,46 @@ const VideoCallPage = () => {
         // ✅ Handle remote tracks
         pc.ontrack = (event) => {
           console.log("🎥 Track received:", event.track.kind);
+          console.log("📊 Remote stream before:", remoteStreamRef.current.getTracks().length);
 
           // Avoid duplicate tracks
           const existingTracks = remoteStreamRef.current.getTracks();
           const alreadyAdded = existingTracks.find(t => t.id === event.track.id);
 
           if (!alreadyAdded) {
+            console.log("➕ Adding track to remote stream");
             remoteStreamRef.current.addTrack(event.track);
+          } else {
+            console.log("⏭️  Track already added, skipping");
           }
 
-          // ✅ Attach remote stream to BOTH video and audio elements
-          if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
-            console.log("📺 Remote video attached");
-            // ✅ CRITICAL FIX: Force play on desktop with proper timing
-            remoteVideoRef.current.play().catch(e => console.warn("Auto-play blocked:", e));
+          console.log("📊 Remote stream after:", remoteStreamRef.current.getTracks().length);
+
+          // ✅ Attach remote stream to video element IMMEDIATELY
+          if (remoteVideoRef.current) {
+            if (!remoteVideoRef.current.srcObject) {
+              console.log("🎬 Setting srcObject on remote video");
+              remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            }
+            
+            // Force play after small delay to ensure stream is ready
+            setTimeout(() => {
+              if (remoteVideoRef.current) {
+                remoteVideoRef.current.play()
+                  .then(() => console.log("▶️  Remote video playing"))
+                  .catch(e => console.warn("⚠️  Auto-play blocked:", e));
+              }
+            }, 50);
           }
           
           if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
+            console.log("🔊 Setting audio stream");
             remoteAudioRef.current.srcObject = remoteStreamRef.current;
-            console.log("🔊 Remote audio attached");
           }
 
+          // ✅ Set remoteVideoOn for ALL video tracks received
           if (event.track.kind === "video") {
-            // ✅ Display video immediately when track arrives
-            console.log("🎥 Video track ready, displaying now");
-            console.log("📊 Video tracks available:", remoteStreamRef.current.getVideoTracks().length);
+            console.log("🎥 VIDEO TRACK RECEIVED - Setting remoteVideoOn to TRUE");
             setRemoteVideoOn(true);
           }
         };
