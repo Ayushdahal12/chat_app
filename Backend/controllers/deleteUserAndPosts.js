@@ -6,8 +6,16 @@ import Post from "../models/post.model.js";
 export const deleteUserAndPosts = async (req, res) => {
   try {
     const userId = req.user._id;
-    // Delete all posts by this user
-    await Post.deleteMany({ userId });
+    
+    // Soft delete: mark all posts as deleted instead of removing them
+    await Post.updateMany(
+      { userId },
+      { 
+        isDeleted: true,
+        deletedBy: userId
+      }
+    );
+    
     // Delete the user
     await User.findByIdAndDelete(userId);
     res.status(200).json({ message: "User and all their posts deleted." });

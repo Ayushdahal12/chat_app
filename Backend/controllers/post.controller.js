@@ -27,8 +27,16 @@ export const createPost = async (req, res) => {
 
 export const getFeedPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ userId: { $ne: null } })
+    // For regular users: exclude deleted posts. For admins: show all posts
+    const query = { userId: { $ne: null } };
+    
+    if (!req.user?.isAdmin) {
+      query.isDeleted = false;
+    }
+
+    const posts = await Post.find(query)
       .populate("userId", "username profilePic")
+      .populate("deletedBy", "username")
       .sort({ createdAt: -1 });
 
     // Filter out posts where populate returned null
@@ -108,13 +116,38 @@ export const deletePost = async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    if (post.userId.toString() !== req.user._id.toString()) {
+    // Allow deletion if user is admin OR if user is the post owner
+    const isPostOwner = post.userId.toString() === req.user._id.toString();
+    const isAdmin = req.user?.isAdmin;
+
+    if (!isPostOwner && !isAdmin) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    await Post.findByIdAndDelete(req.params.id);
+    // Soft delete: mark as deleted instead of removing
+    post.isDeleted = true;
+    post.deletedBy = req.user._id;
+    await post.save();
 
     res.status(200).json({ message: "Post deleted!" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+export const getDeletedPosts = async (req, res) => {
+  try {
+    // Only admins can view deleted posts
+    if (!req.user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const deletedPosts = await Post.find({ isDeleted: true })
+      .populate("userId", "username profilePic")
+      .populate("deletedBy", "username")
+      .sort({ updatedAt: -1 });
+
+    res.status(200).json(deletedPosts);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }

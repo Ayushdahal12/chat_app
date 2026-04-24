@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   profilePic: { type: String, default: "" },
   interests: [{ type: String }],
   isVerified: { type: Boolean, default: false },
+  isAdmin: { type: Boolean, default: false },
   otp: { type: String },
   otpExpiry: { type: Date },
 }, { timestamps: true });
