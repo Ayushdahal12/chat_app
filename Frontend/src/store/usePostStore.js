@@ -3,6 +3,7 @@ import axiosInstance from "../lib/axios";
 
 export const usePostStore = create((set, get) => ({
   posts: [],
+  deletedPosts: [],
   isLoading: false,
 
   getFeedPosts: async () => {
@@ -10,6 +11,18 @@ export const usePostStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/posts");
       set({ posts: res.data });
+    } catch (err) {
+      console.log(err);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  getDeletedPosts: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await axiosInstance.get("/posts/admin/deleted");
+      set({ deletedPosts: res.data });
     } catch (err) {
       console.log(err);
     } finally {

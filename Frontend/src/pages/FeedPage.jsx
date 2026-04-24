@@ -10,7 +10,7 @@ const CLOUDINARY_UPLOAD_PRESET = "gg5z1art";
 const FeedPage = () => {
   const navigate = useNavigate();
   const { authUser } = useAuthStore();
-  const { posts, isLoading, getFeedPosts, createPost, likePost, commentPost, deletePost } = usePostStore();
+  const { posts, deletedPosts, isLoading, getFeedPosts, getDeletedPosts, createPost, likePost, commentPost, deletePost } = usePostStore();
 
   const [showCreate, setShowCreate] = useState(false);
   const [caption, setCaption] = useState("");
@@ -22,10 +22,17 @@ const FeedPage = () => {
   const [commentText, setCommentText] = useState("");
   const [doubleTapPost, setDoubleTapPost] = useState(null);
   const [likedPosts, setLikedPosts] = useState({});
+  const [viewDeleted, setViewDeleted] = useState(false);
   const imageInputRef = useRef(null);
   const lastTapRef = useRef({});
 
-  useEffect(() => { getFeedPosts(); }, []);
+  useEffect(() => { 
+    if (viewDeleted && authUser?.isAdmin) {
+      getDeletedPosts();
+    } else {
+      getFeedPosts();
+    }
+  }, [viewDeleted]);
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -242,10 +249,31 @@ const FeedPage = () => {
             </button>
             <h1 className="feed-logo">गफ <span>Feed</span></h1>
           </div>
-          <button className="post-btn" onClick={() => setShowCreate(true)}>
-            <Plus size={15} strokeWidth={3} />
-            New Post
-          </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {authUser?.isAdmin && (
+              <button 
+                onClick={() => setViewDeleted(!viewDeleted)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '100px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: "'Syne', sans-serif",
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  background: viewDeleted ? '#fee2e2' : '#f3f2ef',
+                  color: viewDeleted ? '#e84040' : '#6b7280',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {viewDeleted ? '🗑️ Deleted' : '📋 All'}
+              </button>
+            )}
+            <button className="post-btn" onClick={() => setShowCreate(true)}>
+              <Plus size={15} strokeWidth={3} />
+              New Post
+            </button>
+          </div>
         </header>
 
         {/* ── MAIN FEED ── */}
@@ -269,17 +297,19 @@ const FeedPage = () => {
                 </div>
               </div>
             ))
-          ) : posts.length === 0 ? (
+          ) : (viewDeleted ? deletedPosts : posts).length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📸</div>
-              <p className="empty-title">Nothing here yet</p>
-              <p className="empty-sub">Be the first to share a moment!</p>
-              <button className="empty-cta" onClick={() => setShowCreate(true)}>
-                Create First Post
-              </button>
+              <div className="empty-icon">{viewDeleted ? '🗑️' : '📸'}</div>
+              <p className="empty-title">{viewDeleted ? 'No deleted posts' : 'Nothing here yet'}</p>
+              <p className="empty-sub">{viewDeleted ? 'No posts have been deleted' : 'Be the first to share a moment!'}</p>
+              {!viewDeleted && (
+                <button className="empty-cta" onClick={() => setShowCreate(true)}>
+                  Create First Post
+                </button>
+              )}
             </div>
           ) : (
-            posts.map((post, idx) => {
+            (viewDeleted ? deletedPosts : posts).map((post, idx) => {
               // Simple check: just ensure post and userId exist
               if (!post || !post._id || !post.userId) {
                 console.warn('Skipping post due to missing data:', post);
@@ -287,6 +317,7 @@ const FeedPage = () => {
               }
               const isLiked = authUser ? Array.isArray(post.likes) && post.likes.includes(authUser._id) : false;
               const isMyPost = authUser ? post.userId && post.userId._id === authUser._id : false;
+              const isAdmin = authUser?.isAdmin;
               return (
                 <div key={post._id} className="post-card" style={{ animationDelay: `${idx * 0.07}s` }}>
                   {/* Header */}
@@ -300,9 +331,14 @@ const FeedPage = () => {
                       <div>
                         <p className="post-username">{post.userId && post.userId.username ? post.userId.username : 'Unknown'}</p>
                         <p className="post-time">{formatTime(post.createdAt)} ago</p>
+                        {viewDeleted && post.deletedBy && (
+                          <p style={{ fontSize: '11px', color: '#e84040', marginTop: '2px', fontWeight: '600' }}>
+                            🗑️ Deleted by {post.deletedBy?.username || 'Admin'}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {isMyPost && (
+                    {(isMyPost || isAdmin) && (
                       <button className="delete-btn" onClick={() => deletePost(post._id)}>
                         <Trash2 size={16} />
                       </button>
