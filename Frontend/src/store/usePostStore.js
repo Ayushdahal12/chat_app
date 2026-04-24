@@ -21,10 +21,12 @@ export const usePostStore = create((set, get) => ({
   getDeletedPosts: async () => {
     set({ isLoading: true });
     try {
+      console.log("🗑️  Fetching deleted posts...");
       const res = await axiosInstance.get("/posts/admin/deleted");
+      console.log("✅ Deleted posts:", res.data.length, "posts");
       set({ deletedPosts: res.data });
     } catch (err) {
-      console.log(err);
+      console.error("❌ Error fetching deleted posts:", err);
     } finally {
       set({ isLoading: false });
     }
@@ -70,10 +72,25 @@ export const usePostStore = create((set, get) => ({
 
   deletePost: async (postId) => {
     try {
+      console.log("🗑️  Deleting post:", postId);
       await axiosInstance.delete(`/posts/${postId}`);
-      set({ posts: get().posts.filter((p) => p._id !== postId) });
+      console.log("✅ Post deleted, updating state");
+      // ✅ Instead of removing, update the post to mark it as deleted
+      set({
+        posts: get().posts.map((p) =>
+          p._id === postId
+            ? { ...p, isDeleted: true }
+            : p
+        ),
+      });
+      // Also add to deletedPosts if admin is viewing
+      const post = get().posts.find(p => p._id === postId);
+      if (post) {
+        console.log("📌 Adding to deletedPosts array");
+        set({ deletedPosts: [{ ...post, isDeleted: true }, ...get().deletedPosts] });
+      }
     } catch (err) {
-      console.log(err);
+      console.error("❌ Error deleting post:", err);
     }
   },
 }));

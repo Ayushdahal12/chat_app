@@ -28,8 +28,10 @@ const FeedPage = () => {
 
   useEffect(() => { 
     if (viewDeleted && authUser?.isAdmin) {
+      console.log("👑 Admin viewing deleted posts");
       getDeletedPosts();
     } else {
+      console.log("📋 Showing regular feed");
       getFeedPosts();
     }
   }, [viewDeleted]);
@@ -331,9 +333,9 @@ const FeedPage = () => {
                       <div>
                         <p className="post-username">{post.userId && post.userId.username ? post.userId.username : 'Unknown'}</p>
                         <p className="post-time">{formatTime(post.createdAt)} ago</p>
-                        {viewDeleted && post.deletedBy && (
+                        {isAdmin && post.isDeleted && (
                           <p style={{ fontSize: '11px', color: '#e84040', marginTop: '2px', fontWeight: '600' }}>
-                            🗑️ Deleted by {post.deletedBy?.username || 'Admin'}
+                            🗑️ Deleted{post.deletedBy ? ` by ${post.deletedBy?.username || 'Admin'}` : ''}
                           </p>
                         )}
                       </div>
