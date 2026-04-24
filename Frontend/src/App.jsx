@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react"; // Nice loader
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -66,6 +67,8 @@ function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      
+      <SpeedInsights />
     </>
   );
 }
